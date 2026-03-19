@@ -4,6 +4,9 @@ import com.google.gson.*;
 import org.base.model.Book;
 import org.base.repository.BookRepository;
 import org.base.util.RedisUtil;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageImpl;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.Pipeline;
 
@@ -11,7 +14,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
-public class redis implements BookRepository {
+public class RedisBookRepository implements BookRepository {
     private final Gson gson = new GsonBuilder()
             .registerTypeAdapter(LocalDateTime.class, (JsonSerializer<LocalDateTime>) (src, typeOfSrc, context) -> new JsonPrimitive(src.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)))
             .registerTypeAdapter(LocalDateTime.class, (JsonDeserializer<LocalDateTime>) (json, typeOfT, context) -> LocalDateTime.parse(json.getAsString(), DateTimeFormatter.ISO_LOCAL_DATE_TIME))
@@ -23,10 +26,7 @@ public class redis implements BookRepository {
         try (Jedis jedis = RedisUtil.getConnection()) {
             String json = gson.toJson(book);
             jedis.set("book:" + book.getId(), json);
-
-            if(book.getAuthor() != null) {
-                jedis.sadd("author:" + book.getAuthor() + ":books");
-            }
+            jedis.rpush("books:all", String.valueOf(book.getId()));
         }
     }
 
@@ -63,29 +63,32 @@ public class redis implements BookRepository {
 
 
     @Override
-    public List<Book> search(String name, String author, String content) {
+    public Page<Book> search(String name, String author, String content, Pageable pageable) {
         List<Book> result = new ArrayList<>();
 
         try (Jedis jedis = RedisUtil.getConnection()) {
             if (author != null && !author.isEmpty()) {
                 Set<String> bookIds = jedis.smembers("author:" + author + ":books");
 
-                if (bookIds.isEmpty()) return result;
+                String[] keys = bookIds.stream()
+                        .map(id -> "book:" + id)
+                        .toArray(String[]::new);
 
-                String[] keys = bookIds.stream().map(id -> "book:" + id).toArray(String[]::new);
                 List<String> jsons = jedis.mget(keys);
 
                 for (String json : jsons) {
                     if (json != null) {
-                        gson.fromJson(json, Book.class);
-                    }
+                        result.add(gson.fromJson(json, Book.class));                    }
                 }
             }
-            else {
-                System.out.println("Cảnh báo: Tìm kiếm full-text trên Redis thuần rất chậm!");
-            }
         }
-        return result;
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), result.size());
+
+        List<Book> pageContent = (start > result.size()) ?
+                new ArrayList<>() : result.subList(start, end);
+
+        return new PageImpl<>(pageContent, pageable, result.size());
     }
 
     @Override
@@ -102,24 +105,18 @@ public class redis implements BookRepository {
     @Override
     public void saveAll(List<Book> books) {
         try (Jedis jedis = RedisUtil.getConnection()) {
-            Pipeline p = jedis.pipelined();
-            for (Book b : books) {
-                String redisId = (b.getId() == null) ? UUID.randomUUID().toString() : b.getId().toString();
+            Pipeline pipeline = jedis.pipelined();
+            for (Book book : books) {
+                String redisId = (book.getId() == null) ? UUID.randomUUID().toString() : book.getId().toString();
+                String key = "book:" + redisId;
 
-                String bookKey = "book:" + redisId;
-                String authorKey = "stats:author:" + b.getAuthor();
+                pipeline.set(key, gson.toJson(book));
 
-                p.set(bookKey, gson.toJson(b));
-
-                p.sadd("author:" + b.getAuthor() + ":books", redisId);
-
-                p.hincrBy(authorKey, "total", 1);
-                p.hincrBy(authorKey, "category:" + b.getCategory(), 1);
+                pipeline.rpush("books:all", redisId);
             }
-            p.sync();
+            pipeline.sync();
         }
     }
-
     @Override
     public Map<String, Object> statisticByAuthor(String author) {
         Map<String, Object> result = new HashMap<>();
@@ -149,5 +146,37 @@ public class redis implements BookRepository {
         return result;
     }
 
+    @Override
+    public Page<Book> findAllPaging(Pageable pageable) {
+        List<Book> books = new ArrayList<>();
+        try (Jedis jedis = RedisUtil.getConnection()) {
+            int start = (int) pageable.getOffset();
+            int end = start + pageable.getPageSize() - 1;
+
+            List<String> ids = jedis.lrange("books:all", start, end);
+            if (!ids.isEmpty()) {
+                List<String> keys = ids.stream()
+                        .map(id -> "book:" + id)
+                        .toList();
+                List<String> jsons = jedis.mget(keys.toArray(new String[0]));
+                for (String json : jsons) {
+                    if (json != null) {
+                        books.add(gson.fromJson(json, Book.class));
+                    }
+                }
+            }
+            long total = jedis.llen("books:all");
+
+            return new PageImpl<>(books, pageable, total);
+        }
+    }
+
+    private String getOrDefault(String newVal, String oldVal) {
+        return (newVal == null || newVal.trim().isEmpty()) ? oldVal : newVal;
+    }
+
+    private Long getOrDefault(Long newVal, Long oldVal) {
+        return (newVal == null) ? oldVal : newVal;
+    }
 
 }

@@ -1,5 +1,7 @@
 package org.base.repository;
 import org.base.model.Book;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 
 import java.time.LocalDateTime;
@@ -46,7 +48,8 @@ public interface BookRepository {
 
     Map<String, Object> statisticByAuthor(String author);
     void save(Book book);
-    List<Book> search(String name, String author, String content);
+    Page<Book> search(String name, String author, String content,  Pageable pageable);
     void deleteByIds(List<String> ids);
+    Page<Book> findAllPaging(Pageable pageable);
     void update(Long id,Book book);
 }

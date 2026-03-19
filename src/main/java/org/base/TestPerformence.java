@@ -1,10 +1,10 @@
 package org.base;
 
 import org.base.repository.BookRepository;
-import org.base.repository.impls.influxdb;
-import org.base.repository.impls.mongodb;
-import org.base.repository.impls.redis;
-import org.base.repository.impls.sql;
+import org.base.repository.impls.InfluxdbBookRepository;
+import org.base.repository.impls.MongodbBookRepository;
+import org.base.repository.impls.RedisBookRepository;
+import org.base.repository.impls.SqlBookRepository;
 import org.base.util.INFLUXUtil;
 import org.base.util.JPAUtil;
 import org.base.util.MongoUtil;
@@ -12,7 +12,7 @@ import org.base.util.RedisUtil;
 
 import java.util.Map;
 
-public class service {
+public class TestPerformence {
 
     private static String influxUrl = "http://localhost:8086/";
 
@@ -43,7 +43,7 @@ public class service {
             RedisUtil.init("localhost", 6379);
             System.out.println("[OK] Đã kết nối Redis.");
         } catch (Exception e) {
-            System.err.println("[LỖI] Không thể kết nối Redis. Chắc chắn bạn đã bật Redis Server chưa?");
+            System.err.println("[LỖI] Không thể kết nối Redis.");
         }
 
         try {
@@ -63,30 +63,30 @@ public class service {
         }
 
         try {
-            System.out.println("\n================================");
-            System.out.println("        TEST SQL (JPA)           ");
-            System.out.println("=================================");
-            BookRepository sqlRepo = new sql();
-
-            System.out.println("Đang tạo và lưu 1.000.000 bản ghi vào SQL... (Vui lòng đợi vài phút)");
-            long startSql = System.currentTimeMillis();
-            sqlRepo.generateAndInsertOneMillionBooks();
-            long endSql = System.currentTimeMillis();
-            System.out.println("-> Thời gian INSERT SQL: " + (endSql - startSql) + " ms");
-
-            System.out.println("\nĐang thống kê sách của tác giả 'Tolkien' trên SQL...");
-            long startStatSql = System.currentTimeMillis();
-            Map<String, Object> sqlStats = sqlRepo.statisticByAuthor("Tolkien");
-            long endStatSql = System.currentTimeMillis();
-            System.out.println(sqlStats);
-            System.out.println("-> Thời gian THỐNG KÊ SQL: " + (endStatSql - startStatSql) + " ms");
+//            System.out.println("\n================================");
+//            System.out.println("        TEST SQL (JPA)           ");
+//            System.out.println("=================================");
+//            BookRepository sqlRepo = new SqlBookRepository();
+//
+//            System.out.println("Đang tạo và lưu 1.000.000 bản ghi ");
+//            long startSql = System.currentTimeMillis();
+//            sqlRepo.generateAndInsertOneMillionBooks();
+//            long endSql = System.currentTimeMillis();
+//            System.out.println("-> Thời gian INSERT SQL: " + (endSql - startSql) + " ms");
+//
+//            System.out.println("\nĐang thống kê sách của tác giả 'Tolkien' trên SQL...");
+//            long startStatSql = System.currentTimeMillis();
+//            Map<String, Object> sqlStats = sqlRepo.statisticByAuthor("Tolkien");
+//            long endStatSql = System.currentTimeMillis();
+//            System.out.println(sqlStats);
+//            System.out.println("-> Thời gian THỐNG KÊ SQL: " + (endStatSql - startStatSql) + " ms");
 
             System.out.println("\n================================");
             System.out.println("          TEST REDIS             ");
             System.out.println("=================================");
-            BookRepository redisRepo = new redis();
+            BookRepository redisRepo = new RedisBookRepository();
 
-            System.out.println("Đang tạo và lưu 1.000.000 bản ghi vào Redis... (Sẽ rất nhanh do dùng Pipeline)");
+            System.out.println("Đang tạo và lưu 1.000.000 bản ghi vào Redis");
             long startRedis = System.currentTimeMillis();
             redisRepo.generateAndInsertOneMillionBooks();
             long endRedis = System.currentTimeMillis();
@@ -99,23 +99,23 @@ public class service {
             System.out.println(redisStats);
             System.out.println("-> Thời gian THỐNG KÊ Redis: " + (endStatRedis - startStatRedis) + " ms");
 
-            System.out.println("\n================================");
-            System.out.println("          TEST MONGODB            ");
-            System.out.println("=================================");
-            BookRepository mongodbRepo = new mongodb();
-            mongodbRepo.generateAndInsertOneMillionBooks();
-
-
-            long startStatMongodb = System.currentTimeMillis();
-            Map<String, Object> MongodbStats = mongodbRepo.statisticByAuthor("Tolkien");
-            long endStatMongodb = System.currentTimeMillis();
-            System.out.println(MongodbStats);
-            System.out.println("-> Thời gian THỐNG KÊ Mongodb: " + (endStatMongodb - startStatMongodb) + " ms");
-
+//            System.out.println("\n================================");
+//            System.out.println("          TEST MONGODB            ");
+//            System.out.println("=================================");
+//            BookRepository mongodbRepo = new MongodbBookRepository();
+//            mongodbRepo.generateAndInsertOneMillionBooks();
+//
+//
+//            long startStatMongodb = System.currentTimeMillis();
+//            Map<String, Object> MongodbStats = mongodbRepo.statisticByAuthor("Tolkien");
+//            long endStatMongodb = System.currentTimeMillis();
+//            System.out.println(MongodbStats);
+//            System.out.println("-> Thời gian THỐNG KÊ Mongodb: " + (endStatMongodb - startStatMongodb) + " ms");
+//
             System.out.println("\n===============================");
             System.out.println("          TEST INFLUX            ");
             System.out.println("=================================");
-            BookRepository influxd = new influxdb();
+            BookRepository influxd = new InfluxdbBookRepository();
             influxd.generateAndInsertOneMillionBooks();
 
 

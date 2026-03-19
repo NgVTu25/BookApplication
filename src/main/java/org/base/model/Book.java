@@ -22,8 +22,9 @@ public class Book {
     private String category;
     private String title;
     private String content;
-    private LocalDateTime createDate;
+    private LocalDateTime createDate = LocalDateTime.now();
     private Long viewCount;
     private Long downloadCount;
+
 
 }

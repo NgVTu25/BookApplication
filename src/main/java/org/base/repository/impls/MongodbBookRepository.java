@@ -9,13 +9,16 @@ import org.base.repository.BookRepository;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.base.util.MongoUtil;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
 
-public class mongodb implements BookRepository {
-    private MongoCollection<Document> collection = MongoUtil.getCollection("books");
+public class MongodbBookRepository implements BookRepository {
+    private final MongoCollection<Document> collection = MongoUtil.getCollection("books");
 
     @Override
     public void save(Book book) {
@@ -27,11 +30,12 @@ public class mongodb implements BookRepository {
     @Override
     public void update(Long id,Book book) {
         Document doc = mapToDocument(book);
+
         collection.replaceOne(Filters.eq("_id", book.getId()), doc);
     }
 
     @Override
-    public List<Book> search(String title, String author, String content) {
+    public Page<Book> search(String title, String author, String content, Pageable pageable) {
         List<Bson> filters = new ArrayList<>();
 
         if (title != null && !title.isEmpty()) {
@@ -50,14 +54,25 @@ public class mongodb implements BookRepository {
         for (Document doc : collection.find(finalQuery)) {
             result.add(mapToBook(doc));
         }
-        return result;
+        return new PageImpl<>(result, pageable, result.size());
     }
 
     @Override
     public void deleteByIds(List<String> ids) {
+        List<Long> cleanId = ids.stream().map(String::trim).map(Long::parseLong).toList();
         if (ids != null && !ids.isEmpty()) {
-            collection.deleteMany(Filters.in("_id", ids));
+            collection.deleteMany(Filters.in("_id", cleanId));
         }
+    }
+
+    @Override
+    public Page<Book> findAllPaging(Pageable pageable) {
+        List<Book> books = new ArrayList<>();
+        for (Document doc : collection.find().skip((int) pageable.getOffset()).limit(pageable.getPageSize())) {
+            books.add(mapToBook(doc));
+        }
+        long total = collection.countDocuments();
+        return new PageImpl<>(books, pageable, total);
     }
 
     @Override
@@ -66,7 +81,7 @@ public class mongodb implements BookRepository {
 
         List<Document> documents = new ArrayList<>();
         for (Book book : books) {
-            book.setId(java.util.concurrent.ThreadLocalRandom.current().nextLong(1, Long.MAX_VALUE));
+            book.setId(ThreadLocalRandom.current().nextLong(1, Long.MAX_VALUE));
             documents.add(mapToDocument(book));
         }
 
@@ -122,6 +137,14 @@ public class mongodb implements BookRepository {
         book.setContent(doc.getString("content"));
 
         return book;
+    }
+
+    private String getOrDefault(String newVal, String oldVal) {
+        return (newVal == null || newVal.trim().isEmpty()) ? oldVal : newVal;
+    }
+
+    private Long getOrDefault(Long newVal, Long oldVal) {
+        return (newVal == null) ? oldVal : newVal;
     }
 
 }

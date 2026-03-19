@@ -3,43 +3,70 @@ package org.base.repository.impls;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityTransaction;
 import jakarta.persistence.Query;
+import jakarta.persistence.TypedQuery;
 import org.base.model.Book;
 import org.base.repository.BookRepository;
 import org.base.util.JPAUtil;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class sql implements BookRepository {
-
+public class SqlBookRepository implements BookRepository {
 
     @Override
-    public List<Book> search(String title, String author, String content) {
+    public Page<Book> search(String title, String author, String content, Pageable pageable) {
         StringBuilder jpql = new StringBuilder("SELECT b FROM Book b WHERE 1=1 ");
 
-        if (author != null && !author.isEmpty()) jpql.append("AND LOWER(b.author) LIKE LOWER(:author) ");
-        if (content != null && !content.isEmpty()) jpql.append("AND LOWER(b.content) LIKE LOWER(:content) ");
+        if (title != null && !title.isEmpty()) {
+            jpql.append(" AND LOWER(b.title) LIKE LOWER(:title) ");
+        }
+        if (author != null && !author.isEmpty()) {
+            jpql.append(" AND LOWER(b.author) LIKE LOWER(:author) ");
+        }
+        if (content != null && !content.isEmpty()) {
+            jpql.append(" AND LOWER(b.content) LIKE LOWER(:content) ");
+        }
 
         EntityManager em = getEm();
-        Query query = em.createQuery(jpql.toString(), Book.class);
+        TypedQuery<Book> query = em.createQuery(jpql.toString(), Book.class);
 
-        if (title != null && !title.isEmpty()) query.setParameter("name", "%" + title + "%");
+        if (title != null && !title.isEmpty()) query.setParameter("title", "%" + title + "%");
         if (author != null && !author.isEmpty()) query.setParameter("author", "%" + author + "%");
         if (content != null && !content.isEmpty()) query.setParameter("content", "%" + content + "%");
 
-        return query.getResultList();
+        query.setFirstResult((int) pageable.getOffset());
+        query.setMaxResults(pageable.getPageSize());
+
+        List<Book> resultList = query.getResultList();
+
+        return new PageImpl<>(resultList, pageable, resultList.size());
     }
 
     @Override
     public void deleteByIds(List<String> ids) {
         if (ids == null || ids.isEmpty()) return;
         EntityManager em = getEm();
+
+        List<Long> cleanIds = ids.stream()
+                .map(String::trim)
+                .map(Long::parseLong)
+                .toList();
+
+            for (Long id : cleanIds) {
+                System.out.println(id);
+            }
+
         try {
             em.getTransaction().begin();
             String jpql = "DELETE FROM Book b WHERE b.id IN :ids";
-            em.createQuery(jpql).setParameter("ids", ids).executeUpdate();
+                System.out.println("Đã xóa id" + cleanIds);
+            em.createQuery(jpql).setParameter("ids", cleanIds).executeUpdate();
             em.getTransaction().commit();
+
         } catch (Exception e) {
             em.getTransaction().rollback();
         }
@@ -54,13 +81,10 @@ public class sql implements BookRepository {
             tx.begin();
             Book existingBook = em.find(Book.class, id);
             if (existingBook != null) {
-                existingBook.setAuthor(book.getAuthor());
-                existingBook.setCategory(book.getCategory());
-                existingBook.setTitle(book.getTitle());
-                existingBook.setContent(book.getContent());
-                existingBook.setViewCount(book.getViewCount());
-                existingBook.setDownloadCount(book.getDownloadCount());
-
+                existingBook.setAuthor(getOrDefault(book.getAuthor(), existingBook.getAuthor()));
+                existingBook.setCategory(getOrDefault(book.getCategory(), existingBook.getCategory()));
+                existingBook.setTitle(getOrDefault(book.getTitle(), existingBook.getTitle()));
+                existingBook.setContent(getOrDefault(book.getContent(), existingBook.getContent()));
                 em.merge(existingBook);
             }
             tx.commit();
@@ -126,10 +150,33 @@ public class sql implements BookRepository {
     }
 
     @Override
+    public Page<Book> findAllPaging(Pageable pageable) {
+        EntityManager em = getEm();
+
+        List<Book> books = em.createQuery("SELECT b FROM Book b", Book.class)
+                .setFirstResult((int) pageable.getOffset())
+                .setMaxResults(pageable.getPageSize())
+                .getResultList();
+
+        Long total = em.createQuery("SELECT COUNT(b) FROM Book b", Long.class)
+                .getSingleResult();
+
+        return new PageImpl<>(books, pageable, total);
+    }
+    
+    @Override
     public void save(Book book) {
         EntityManager em = getEm();
         em.getTransaction().begin();
         em.persist(book);
         em.getTransaction().commit();
+    }
+
+    private String getOrDefault(String newVal, String oldVal) {
+        return (newVal == null || newVal.trim().isEmpty()) ? oldVal : newVal;
+    }
+
+    private Long getOrDefault(Long newVal, Long oldVal) {
+        return (newVal == null) ? oldVal : newVal;
     }
 }
