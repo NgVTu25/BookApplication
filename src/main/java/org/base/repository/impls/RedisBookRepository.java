@@ -13,6 +13,7 @@ import redis.clients.jedis.Pipeline;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class RedisBookRepository implements BookRepository {
     private final Gson gson = new GsonBuilder()
@@ -107,7 +108,9 @@ public class RedisBookRepository implements BookRepository {
         try (Jedis jedis = RedisUtil.getConnection()) {
             Pipeline pipeline = jedis.pipelined();
             for (Book book : books) {
-                String redisId = (book.getId() == null) ? UUID.randomUUID().toString() : book.getId().toString();
+                String redisId = (book.getId() == null) ?
+                        String.valueOf(ThreadLocalRandom.current().nextLong(1L, Long.MAX_VALUE))
+                        : book.getId().toString();
                 String key = "book:" + redisId;
 
                 pipeline.set(key, gson.toJson(book));

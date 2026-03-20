@@ -9,26 +9,15 @@ import org.base.repository.impls.SqlBookRepository;
 public class BookFactory {
 
 
-    public static BookRepository getRepository(String databaseType) {
-        if (databaseType == null) {
-            throw new IllegalArgumentException("Loại Database không được để trống!");
-        }
+    public static BookRepository getRepository(int databaseType) {
 
-        switch (databaseType.toLowerCase()) {
-            case "sql":
-                return new SqlBookRepository();
 
-            case "redis":
-                return new RedisBookRepository();
-
-            case "influx":
-                return new InfluxdbBookRepository();
-
-            case "mongodb":
-                 return new MongodbBookRepository();
-
-            default:
-                throw new IllegalArgumentException("Hệ thống chưa hỗ trợ loại Database: " + databaseType);
-        }
+        return switch (databaseType) {
+            case 1 -> new SqlBookRepository();
+            case 2 -> new MongodbBookRepository();
+            case 3 -> new RedisBookRepository();
+            case 4 -> new InfluxdbBookRepository();
+            default -> throw new IllegalArgumentException("Hệ thống chưa hỗ trợ loại Database: " + databaseType);
+        };
     }
 }

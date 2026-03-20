@@ -60,7 +60,7 @@ public class MongodbBookRepository implements BookRepository {
     @Override
     public void deleteByIds(List<String> ids) {
         List<Long> cleanId = ids.stream().map(String::trim).map(Long::parseLong).toList();
-        if (ids != null && !ids.isEmpty()) {
+        if (!ids.isEmpty()) {
             collection.deleteMany(Filters.in("_id", cleanId));
         }
     }
@@ -112,7 +112,7 @@ public class MongodbBookRepository implements BookRepository {
     }
 
     private Document mapToDocument(Book book) {
-        Object finalId = (book.getId() == null) ? UUID.randomUUID().toString() : book.getId();
+        Object finalId = (book.getId() == null) ? ThreadLocalRandom.current().nextLong(1L, Long.MAX_VALUE) : book.getId();
 
         return new Document("_id", finalId)
                 .append("author", book.getAuthor())

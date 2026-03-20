@@ -18,7 +18,6 @@ public class INFLUXUtil {
 
     public static void init(String url, String token, String organization, String bucketName) {
         try {
-            client = InfluxDBClientFactory.create(url, token.toCharArray(), organization, bucketName);
             org = organization;
             bucket = bucketName;
 

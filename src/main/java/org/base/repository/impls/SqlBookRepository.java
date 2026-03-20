@@ -2,7 +2,6 @@ package org.base.repository.impls;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityTransaction;
-import jakarta.persistence.Query;
 import jakarta.persistence.TypedQuery;
 import org.base.model.Book;
 import org.base.repository.BookRepository;
@@ -174,9 +173,5 @@ public class SqlBookRepository implements BookRepository {
 
     private String getOrDefault(String newVal, String oldVal) {
         return (newVal == null || newVal.trim().isEmpty()) ? oldVal : newVal;
-    }
-
-    private Long getOrDefault(Long newVal, Long oldVal) {
-        return (newVal == null) ? oldVal : newVal;
     }
 }

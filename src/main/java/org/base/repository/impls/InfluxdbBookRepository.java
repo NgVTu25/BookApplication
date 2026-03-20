@@ -17,18 +17,14 @@ import org.springframework.data.domain.Pageable;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 
 
 public class InfluxdbBookRepository implements BookRepository {
-    private InfluxDBClient influxDBClient = INFLUXUtil.getClient();
+    private final InfluxDBClient influxDBClient = INFLUXUtil.getClient();
     private final String influxUrl = "http://localhost:8086/";
-
-    private final String bucket = "java";
 
     private final String token = "CBap0zc0WPeZmTgNzNBF5s8mdj1cHzbmw8_0cIEumo-MrLRsUblN1XwRmRDUx8FjfSm0MjDe_LsqK71aX9kREQ==";
 
@@ -50,7 +46,8 @@ public class InfluxdbBookRepository implements BookRepository {
             for (int i = 0; i < books.size(); i++) {
                 Book b = books.get(i);
                 if (b.getId() == null) {
-                    b.setId(ThreadLocalRandom.current().nextLong());
+                    Long newId = ThreadLocalRandom.current().nextLong(1L, Long.MAX_VALUE);
+                    b.setId(newId);
                 }
 
                 Point point = Point.measurement(MEASUREMENT)
@@ -71,8 +68,10 @@ public class InfluxdbBookRepository implements BookRepository {
     @Override
     public void save(Book book) {
         try {
+            Long id = ThreadLocalRandom.current().nextLong(1L, Long.MAX_VALUE);
             Point point = Point.measurement("books_metrics")
                     .addTag("author", book.getAuthor())
+                    .addTag("id", id.toString())
                     .addTag("category", book.getCategory())
                     .addField("viewCount", book.getViewCount() != null ? book.getViewCount() : 0L)
                     .time(Instant.now(), WritePrecision.NS);
@@ -111,16 +110,31 @@ public class InfluxdbBookRepository implements BookRepository {
         }
         return new PageImpl<>(books, pageable, books.size());
     }
-
     @Override
     public void deleteByIds(List<String> ids) {
-        OffsetDateTime start = OffsetDateTime.now().minusDays(7);
+        if (ids == null || ids.isEmpty()) return;
+
+        OffsetDateTime start = OffsetDateTime.now().minusYears(1);
         OffsetDateTime stop = OffsetDateTime.now();
 
-        String predicate = "author = \"Tolkien\"";
+        String predicate = ids.stream()
+                .map(id -> "id = \"" + id + "\"")
+                .collect(Collectors.joining(" or "));
 
-        INFLUXUtil.getClient().getDeleteApi().delete(start, stop, predicate,
-                INFLUXUtil.getBucket(), INFLUXUtil.getOrg());
+        String finalPredicate = "_measurement = \"Book\" and (" + predicate + ")";
+
+        try {
+            INFLUXUtil.getClient().getDeleteApi().delete(
+                    start,
+                    stop,
+                    finalPredicate,
+                    INFLUXUtil.getBucket(),
+                    INFLUXUtil.getOrg()
+            );
+            System.out.println("Deleted ids: " + ids);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
@@ -134,7 +148,7 @@ public class InfluxdbBookRepository implements BookRepository {
 
         String query = String.format(
                 "from(bucket: \"%s\") " +
-                        "|> range(start: -24h) " +
+                        "|> range(start: -24d) " +
                         "|> filter(fn: (r) => r[\"_measurement\"] == \"books_metrics\") " +
                         "|> filter(fn: (r) => r[\"author\"] == \"%s\") " +
                         "|> count()",
@@ -155,6 +169,7 @@ public class InfluxdbBookRepository implements BookRepository {
 
     @Override
     public Page<Book> findAllPaging(Pageable pageable) {
+        String bucket = "java";
         String flux = String.format("from(bucket: \"%s\") ", bucket) +
                 "|> range(start: 0) " +
                 String.format("|> filter(fn: (r) => r._measurement == \"%s\") ", MEASUREMENT) +
@@ -213,11 +228,11 @@ public class InfluxdbBookRepository implements BookRepository {
 
     private long getTotalCount(String countQuery) {
         List<FluxTable> tables = influxDBClient.getQueryApi().query(countQuery);
-        if (tables.isEmpty() || tables.get(0).getRecords().isEmpty()) {
+        if (tables.isEmpty() || tables.getFirst().getRecords().isEmpty()) {
             return 0L;
         }
 
-        Object countObj = tables.get(0).getRecords().get(0).getValueByKey("_value");
+        Object countObj = tables.getFirst().getRecords().getFirst().getValueByKey("_value");
         return countObj != null ? Long.parseLong(countObj.toString()) : 0L;
     }
 }
