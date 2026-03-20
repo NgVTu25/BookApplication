@@ -39,24 +39,7 @@ public class InfluxdbBookRepository implements BookRepository {
             long startNano = System.currentTimeMillis() * 1_000_000L;
 
             for (int i = 0; i < books.size(); i++) {
-                Book book = books.get(i);
-
-                Long id = book.getId() != null
-                        ? book.getId()
-                        : ThreadLocalRandom.current().nextLong(1L, Long.MAX_VALUE);
-
-                book.setId(id);
-
-                Point point = Point.measurement(MEASUREMENT)
-                        .addTag("id", String.valueOf(id))
-                        .addTag("author", defaultString(book.getAuthor(), "Unknown"))
-                        .addTag("category", defaultString(book.getCategory(), "Unknown"))
-                        .addField("title", defaultString(book.getTitle(), ""))
-                        .addField("content", defaultString(book.getContent(), ""))
-                        .addField("viewCount", book.getViewCount() != null ? book.getViewCount() : 0L)
-                        .addField("downloadCount", book.getDownloadCount() != null ? book.getDownloadCount() : 0L)
-                        .time(startNano + i, WritePrecision.NS);
-
+                Point point = buildPoint(books.get(i), Instant.ofEpochSecond(0, startNano + i));
                 points.add(point);
             }
 
@@ -68,32 +51,17 @@ public class InfluxdbBookRepository implements BookRepository {
         System.out.println("Đã đẩy " + books.size() + " bản ghi lên InfluxDB");
     }
 
+
+
     @Override
     public void save(Book book) {
         if (book == null) {
             return;
         }
 
-        try {
-            Long id = book.getId() != null
-                    ? book.getId()
-                    : ThreadLocalRandom.current().nextLong(1L, Long.MAX_VALUE);
-
-            book.setId(id);
-
-            Point point = Point.measurement(MEASUREMENT)
-                    .addTag("id", String.valueOf(id))
-                    .addTag("author", defaultString(book.getAuthor(), "Unknown"))
-                    .addTag("category", defaultString(book.getCategory(), "Unknown"))
-                    .addField("title", defaultString(book.getTitle(), ""))
-                    .addField("content", defaultString(book.getContent(), ""))
-                    .addField("viewCount", book.getViewCount() != null ? book.getViewCount() : 0L)
-                    .addField("downloadCount", book.getDownloadCount() != null ? book.getDownloadCount() : 0L)
-                    .time(Instant.now(), WritePrecision.NS);
-
-            try (WriteApi writeApi = influxDBClient.makeWriteApi()) {
-                writeApi.writePoint(point);
-            }
+        try (WriteApi writeApi = influxDBClient.makeWriteApi()) {
+            Point point = buildPoint(book, Instant.now());
+            writeApi.writePoint(point);
         } catch (Exception e) {
             throw new RuntimeException("Failed to save book to InfluxDB", e);
         }
@@ -119,11 +87,6 @@ public class InfluxdbBookRepository implements BookRepository {
         if (title != null && !title.trim().isEmpty()) {
             String safeTitle = escapeRegex(title.trim());
             flux.append(String.format("|> filter(fn: (r) => r[\"title\"] =~ /(?i).*%s.*/) ", safeTitle));
-        }
-
-        if (content != null && !content.trim().isEmpty()) {
-            String safeContent = escapeRegex(content.trim());
-            flux.append(String.format("|> filter(fn: (r) => r[\"content\"] =~ /(?i).*%s.*/) ", safeContent));
         }
 
         List<Book> books = deduplicateLatestBooks(mapFluxToBooks(flux.toString()));
@@ -308,5 +271,21 @@ public class InfluxdbBookRepository implements BookRepository {
 
     private String escapeRegex(String input) {
         return Pattern.quote(input);
+    }
+
+    private Point buildPoint(Book book, Instant date) {
+        Long id = book.getId() != null ? book.getId() : ThreadLocalRandom.current().nextLong(1L, Long.MAX_VALUE);
+
+        book.setId(id);
+
+        return   Point.measurement(MEASUREMENT)
+                .addTag("id", String.valueOf(id))
+                .addTag("author", defaultString(book.getAuthor(), "Unknown"))
+                .addTag("category", defaultString(book.getCategory(), "Unknown"))
+                .addField("title", defaultString(book.getTitle(), ""))
+                .addField("content", defaultString(book.getContent(), ""))
+                .addField("viewCount", book.getViewCount() != null ? book.getViewCount() : 0L)
+                .addField("downloadCount", book.getDownloadCount() != null ? book.getDownloadCount() : 0L)
+                .time(Instant.now(), WritePrecision.NS);
     }
 }

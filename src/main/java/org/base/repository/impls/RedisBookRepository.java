@@ -134,54 +134,10 @@ public class RedisBookRepository implements BookRepository {
             if (author != null && !author.trim().isEmpty()) {
                 Set<String> bookIds = jedis.smembers(authorBooksKey(author));
 
-                if (!bookIds.isEmpty()) {
-                    String[] keys = bookIds.stream()
-                            .map(id -> "book:" + id)
-                            .toArray(String[]::new);
-
-                    List<String> jsons = jedis.mget(keys);
-
-                    for (String json : jsons) {
-                        if (json != null) {
-                            Book book = gson.fromJson(json, Book.class);
-
-                            boolean matchName = (name == null || name.trim().isEmpty())
-                                    || (book.getTitle() != null && book.getTitle().toLowerCase().contains(name.trim().toLowerCase()));
-
-                            boolean matchContent = (content == null || content.trim().isEmpty())
-                                    || (book.getContent() != null && book.getContent().toLowerCase().contains(content.trim().toLowerCase()));
-
-                            if (matchName && matchContent) {
-                                result.add(book);
-                            }
-                        }
-                    }
-                }
+                addMatchingBooks(new ArrayList<>(bookIds), name, jedis, gson, result);
             } else {
                 List<String> ids = jedis.lrange(BOOKS_ALL_KEY, 0, -1);
-                if (!ids.isEmpty()) {
-                    String[] keys = ids.stream()
-                            .map(id -> "book:" + id)
-                            .toArray(String[]::new);
-
-                    List<String> jsons = jedis.mget(keys);
-
-                    for (String json : jsons) {
-                        if (json != null) {
-                            Book book = gson.fromJson(json, Book.class);
-
-                            boolean matchName = (name == null || name.trim().isEmpty())
-                                    || (book.getTitle() != null && book.getTitle().toLowerCase().contains(name.trim().toLowerCase()));
-
-                            boolean matchContent = (content == null || content.trim().isEmpty())
-                                    || (book.getContent() != null && book.getContent().toLowerCase().contains(content.trim().toLowerCase()));
-
-                            if (matchName) {
-                                result.add(book);
-                            }
-                        }
-                    }
-                }
+                addMatchingBooks(ids, name, jedis, gson, result);
             }
         }
 
@@ -193,6 +149,33 @@ public class RedisBookRepository implements BookRepository {
                 : result.subList(start, end);
 
         return new PageImpl<>(pageContent, pageable, result.size());
+    }
+
+    private void addMatchingBooks(List<String> ids, String name, Jedis jedis, Gson gson, List<Book> result) {
+        if (ids == null || ids.isEmpty()) {
+            return;
+        }
+        String keyword = name == null ? "" : name.trim().toLowerCase();
+
+        String[] keys = ids.stream()
+                .map(id -> "book:" + id)
+                .toArray(String[]::new);
+
+        List<String> jsons = jedis.mget(keys);
+
+        for (String json : jsons) {
+            if (json == null) {
+                continue;
+            }
+
+            Book book = gson.fromJson(json, Book.class);
+
+            boolean matchName = keyword.isEmpty()
+                    || (book.getTitle() != null && book.getTitle().toLowerCase().contains(keyword));
+            if (matchName) {
+                result.add(book);
+            }
+        }
     }
 
     @Override
@@ -217,6 +200,7 @@ public class RedisBookRepository implements BookRepository {
 
     @Override
     public void saveAll(List<Book> books) {
+
         if (books == null || books.isEmpty()) return;
 
         try (Jedis jedis = RedisUtil.getConnection()) {
