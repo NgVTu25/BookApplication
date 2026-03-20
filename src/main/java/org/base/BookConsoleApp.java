@@ -148,7 +148,7 @@ public class BookConsoleApp implements CommandLineRunner {
                 System.out.print("Từ khóa tác giả: "); String author = scanner.nextLine();
                 System.out.print("Từ khóa nội dung: "); String content = scanner.nextLine();
 
-                var result = database.search(title, author, content, Pageable.ofSize(10));
+                var result = database.search(title, author, content, Pageable.ofSize(100));
                 if (result == null || result.isEmpty()) {
                     System.out.println("Không tìm thấy kết quả nào.");
                 } else {
@@ -188,7 +188,7 @@ public class BookConsoleApp implements CommandLineRunner {
                 System.out.println("Kết quả thống kê: " + stats);
             }
             case 6 -> {
-                var books = database.findAllPaging(Pageable.ofSize(10));
+                var books = database.findAllPaging(Pageable.ofSize(100));
                 if (books == null || books.isEmpty()) {
                     System.out.println("Chưa có sách nào trong database này.");
                 } else {

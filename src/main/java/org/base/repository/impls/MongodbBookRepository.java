@@ -4,6 +4,7 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Accumulators;
 import com.mongodb.client.model.Aggregates;
 import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.Updates;
 import org.base.model.Book;
 import org.base.repository.BookRepository;
 import org.bson.Document;
@@ -13,6 +14,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
@@ -22,16 +24,28 @@ public class MongodbBookRepository implements BookRepository {
 
     @Override
     public void save(Book book) {
+        if (book.getId() == null) {
+            book.setId(ThreadLocalRandom.current().nextLong(1, Long.MAX_VALUE));
+        }
         Document doc = mapToDocument(book);
-        book.setId(ThreadLocalRandom.current().nextLong(1, Long.MAX_VALUE));
         collection.insertOne(doc);
     }
 
     @Override
-    public void update(Long id,Book book) {
-        Document doc = mapToDocument(book);
+    public void update(Long id, Book book) {
+        List<Bson> updatesList = new ArrayList<>();
 
-        collection.replaceOne(Filters.eq("_id", book.getId()), doc);
+        if (book.getTitle() != null) updatesList.add(Updates.set("title", book.getTitle()));
+        if (book.getAuthor() != null) updatesList.add(Updates.set("author", book.getAuthor()));
+        if (book.getCategory() != null) updatesList.add(Updates.set("category", book.getCategory()));
+        if (book.getContent() != null) updatesList.add(Updates.set("content", book.getContent()));
+        if (book.getViewCount() != null) updatesList.add(Updates.set("viewCount", book.getViewCount()));
+        if (book.getDownloadCount() != null) updatesList.add(Updates.set("downloadCount", book.getDownloadCount()));
+        if (book.getCreateDate() != null) updatesList.add(Updates.set("createDate", book.getCreateDate().toString()));
+
+        if (!updatesList.isEmpty()) {
+            collection.updateOne(Filters.eq("_id", id), Updates.combine(updatesList));
+        }
     }
 
     @Override
@@ -50,11 +64,15 @@ public class MongodbBookRepository implements BookRepository {
 
         Bson finalQuery = filters.isEmpty() ? new Document() : Filters.and(filters);
 
-        List<Book> result = new ArrayList<>();
-        for (Document doc : collection.find(finalQuery)) {
-            result.add(mapToBook(doc));
-        }
-        return new PageImpl<>(result, pageable, result.size());
+        long total = collection.countDocuments(finalQuery);
+
+        List<Book> result = collection.find(finalQuery)
+                .skip((int) pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .map(this::mapToBook)
+                .into(new ArrayList<>());
+
+        return new PageImpl<>(result, pageable, total);
     }
 
     @Override
@@ -68,7 +86,8 @@ public class MongodbBookRepository implements BookRepository {
     @Override
     public Page<Book> findAllPaging(Pageable pageable) {
         List<Book> books = new ArrayList<>();
-        for (Document doc : collection.find().skip((int) pageable.getOffset()).limit(pageable.getPageSize())) {
+        for (Document doc : collection.find().sort(new Document("_id", -1))
+                .skip((int) pageable.getOffset()).limit(pageable.getPageSize())) {
             books.add(mapToBook(doc));
         }
         long total = collection.countDocuments();
@@ -112,9 +131,7 @@ public class MongodbBookRepository implements BookRepository {
     }
 
     private Document mapToDocument(Book book) {
-        Object finalId = (book.getId() == null) ? ThreadLocalRandom.current().nextLong(1L, Long.MAX_VALUE) : book.getId();
-
-        return new Document("_id", finalId)
+        return new Document("_id", book.getId())
                 .append("author", book.getAuthor())
                 .append("category", book.getCategory())
                 .append("title", book.getTitle())
@@ -132,19 +149,19 @@ public class MongodbBookRepository implements BookRepository {
             book.setId(((Number) idObj).longValue());
         }
 
+        book.setTitle(doc.getString("title"));
         book.setAuthor(doc.getString("author"));
         book.setCategory(doc.getString("category"));
         book.setContent(doc.getString("content"));
+        book.setViewCount(doc.getLong("viewCount"));
+        book.setDownloadCount(doc.getLong("downloadCount"));
+
+        String createDate = doc.getString("createDate");
+        if (createDate != null) {
+            book.setCreateDate(LocalDateTime.parse(createDate));
+        }
 
         return book;
-    }
-
-    private String getOrDefault(String newVal, String oldVal) {
-        return (newVal == null || newVal.trim().isEmpty()) ? oldVal : newVal;
-    }
-
-    private Long getOrDefault(Long newVal, Long oldVal) {
-        return (newVal == null) ? oldVal : newVal;
     }
 
 }

@@ -18,31 +18,34 @@ public class SqlBookRepository implements BookRepository {
 
     @Override
     public Page<Book> search(String title, String author, String content, Pageable pageable) {
-        StringBuilder jpql = new StringBuilder("SELECT b FROM Book b WHERE 1=1 ");
+        StringBuilder jpql = new StringBuilder("SELECT b FROM Book b WHERE 1=1");
+        Map<String, String> params = new HashMap<>();
 
-        if (title != null && !title.isEmpty()) {
-            jpql.append(" AND LOWER(b.title) LIKE LOWER(:title) ");
+        if (title != null && !title.trim().isEmpty()) params.put("title", "%" + title + "%");
+        if (author != null && !author.trim().isEmpty()) params.put("author", "%" + author + "%");
+        if (content != null && !content.trim().isEmpty()) params.put("content", "%" + content + "%");
+
+        params.keySet().forEach(k -> jpql.append(" AND LOWER(b.").append(k).append(") LIKE LOWER(:").append(k).append(")"));
+
+        try (EntityManager em = getEm()) {
+            TypedQuery<Book> query = em.createQuery(jpql.toString(), Book.class);
+
+            params.forEach(query::setParameter);
+
+            query.setFirstResult((int) pageable.getOffset());
+            query.setMaxResults(pageable.getPageSize());
+            List<Book> resultList = query.getResultList();
+
+            String countJpql = jpql.toString().replace("SELECT b", "SELECT COUNT(b)");
+            TypedQuery<Long> countQuery = em.createQuery(countJpql, Long.class);
+            params.forEach(countQuery::setParameter);
+            long total = countQuery.getSingleResult();
+
+            em.close();
+            return new PageImpl<>(resultList, pageable, total);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
-        if (author != null && !author.isEmpty()) {
-            jpql.append(" AND LOWER(b.author) LIKE LOWER(:author) ");
-        }
-        if (content != null && !content.isEmpty()) {
-            jpql.append(" AND LOWER(b.content) LIKE LOWER(:content) ");
-        }
-
-        EntityManager em = getEm();
-        TypedQuery<Book> query = em.createQuery(jpql.toString(), Book.class);
-
-        if (title != null && !title.isEmpty()) query.setParameter("title", "%" + title + "%");
-        if (author != null && !author.isEmpty()) query.setParameter("author", "%" + author + "%");
-        if (content != null && !content.isEmpty()) query.setParameter("content", "%" + content + "%");
-
-        query.setFirstResult((int) pageable.getOffset());
-        query.setMaxResults(pageable.getPageSize());
-
-        List<Book> resultList = query.getResultList();
-
-        return new PageImpl<>(resultList, pageable, resultList.size());
     }
 
     @Override
@@ -50,10 +53,16 @@ public class SqlBookRepository implements BookRepository {
         if (ids == null || ids.isEmpty()) return;
         EntityManager em = getEm();
 
-        List<Long> cleanIds = ids.stream()
-                .map(String::trim)
-                .map(Long::parseLong)
-                .toList();
+        List<Long> cleanIds;
+        try {
+            cleanIds = ids.stream()
+                    .filter(id -> id != null && !id.trim().isEmpty())
+                    .map(String::trim)
+                    .map(Long::parseLong)
+                    .toList();
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Danh sách id chứa giá trị không hợp lệ", e);
+        }
 
             for (Long id : cleanIds) {
                 System.out.println(id);
@@ -65,9 +74,13 @@ public class SqlBookRepository implements BookRepository {
                 System.out.println("Đã xóa id" + cleanIds);
             em.createQuery(jpql).setParameter("ids", cleanIds).executeUpdate();
             em.getTransaction().commit();
-
+            em.close();
         } catch (Exception e) {
-            em.getTransaction().rollback();
+            if (em.getTransaction().isActive()) {
+                em.getTransaction().rollback();
+            }
+            e.printStackTrace();
+            throw e;
         }
     }
 
@@ -84,13 +97,13 @@ public class SqlBookRepository implements BookRepository {
                 existingBook.setCategory(getOrDefault(book.getCategory(), existingBook.getCategory()));
                 existingBook.setTitle(getOrDefault(book.getTitle(), existingBook.getTitle()));
                 existingBook.setContent(getOrDefault(book.getContent(), existingBook.getContent()));
-                em.merge(existingBook);
             }
             tx.commit();
         } catch (Exception e) {
             if (tx.isActive()) tx.rollback();
             e.printStackTrace();
         }
+        em.close();
     }
 
 
@@ -115,6 +128,7 @@ public class SqlBookRepository implements BookRepository {
             if (tx.isActive()) tx.rollback();
             e.printStackTrace();
         }
+        em.close();
     }
 
     private EntityManager getEm() {
@@ -144,6 +158,7 @@ public class SqlBookRepository implements BookRepository {
             categoryCountMap.put(category, count);
         }
         result.put("Thống kê theo thể loại", categoryCountMap);
+        em.close();
 
         return result;
     }
@@ -152,23 +167,34 @@ public class SqlBookRepository implements BookRepository {
     public Page<Book> findAllPaging(Pageable pageable) {
         EntityManager em = getEm();
 
-        List<Book> books = em.createQuery("SELECT b FROM Book b", Book.class)
+        List<Book> books = em.createQuery("SELECT b FROM Book b ORDER BY b.id DESC", Book.class)
                 .setFirstResult((int) pageable.getOffset())
                 .setMaxResults(pageable.getPageSize())
                 .getResultList();
 
-        Long total = em.createQuery("SELECT COUNT(b) FROM Book b", Long.class)
+        Long total = em.createQuery("SELECT COUNT(b) FROM Book b ORDER BY b.id DESC", Long.class)
                 .getSingleResult();
+
+        em.close();
 
         return new PageImpl<>(books, pageable, total);
     }
-    
+
     @Override
     public void save(Book book) {
         EntityManager em = getEm();
-        em.getTransaction().begin();
-        em.persist(book);
-        em.getTransaction().commit();
+        EntityTransaction tx = em.getTransaction();
+        try {
+            tx.begin();
+            em.persist(book);
+            tx.commit();
+        } catch (Exception e) {
+            if (tx.isActive()) tx.rollback();
+            e.printStackTrace();
+            throw e;
+        } finally {
+            em.close();
+        }
     }
 
     private String getOrDefault(String newVal, String oldVal) {
