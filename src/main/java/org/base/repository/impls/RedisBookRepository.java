@@ -10,6 +10,7 @@ import org.springframework.data.domain.PageImpl;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.Pipeline;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -20,12 +21,10 @@ public class RedisBookRepository implements BookRepository {
     private static final String BOOKS_ALL_KEY = "books:all";
 
     private final Gson gson = new GsonBuilder()
-            .registerTypeAdapter(LocalDateTime.class,
-                    (JsonSerializer<LocalDateTime>) (src, typeOfSrc, context) ->
-                            new JsonPrimitive(src.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)))
-            .registerTypeAdapter(LocalDateTime.class,
-                    (JsonDeserializer<LocalDateTime>) (json, typeOfT, context) ->
-                            LocalDateTime.parse(json.getAsString(), DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+            .registerTypeAdapter(Instant.class, (JsonSerializer<Instant>) (src, typeOfSrc, context) ->
+                    new JsonPrimitive(src.toString()))
+            .registerTypeAdapter(Instant.class, (JsonDeserializer<Instant>) (json, typeOfT, context) ->
+                    Instant.parse(json.getAsString()))
             .create();
 
     private String bookKey(Long id) {

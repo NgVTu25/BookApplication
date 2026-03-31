@@ -8,6 +8,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import lombok.*;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 
 @Data
@@ -19,16 +20,21 @@ import java.time.LocalDateTime;
 public class Book {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(tag = true)
+    @Column
     private Long id;
-
+    @Column(tag = true)
     private String author;
+    @Column(tag = true)
     private String category;
+    @Column
     private String title;
+    @Column
     private String content;
-    private LocalDateTime createDate = LocalDateTime.now();
-    private Long viewCount;
-    private Long downloadCount;
-
+    @Column(timestamp = true)
+    private Instant createDate = Instant.now();
+    @Column
+    public Long viewCount;
+    @Column
+    public Long downloadCount;
 
 }

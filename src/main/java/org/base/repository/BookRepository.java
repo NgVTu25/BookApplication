@@ -4,6 +4,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -12,14 +13,14 @@ import java.util.Map;
 public interface BookRepository {
 
     default void generateAndInsertOneMillionBooks() {
-        int batchSize = 10000;
+        int batchSize = 5000;
         List<Book> batch = new ArrayList<>(batchSize);
         String[] categories = {"Hành động", "Tình cảm", "Khoa học", "Lịch sử", "Kinh dị"};
         String[] authors = {"Nguyen Van A", "Tran Thi B", "Le Van C", "Tolkien", "J.K. Rowling"};
 
         System.out.println("Bắt đầu sinh 1.000.000 dữ liệu...");
         long start = System.currentTimeMillis();
-        LocalDateTime now = LocalDateTime.now();
+        Instant now = Instant.now();
 
         for (int i = 1; i <= 1000000; i++) {
 
@@ -28,7 +29,7 @@ public interface BookRepository {
                     .category(categories[i % categories.length])
                     .title("Tiêu đề " + i)
                     .content("Nội dung hấp dẫn " + i)
-                    .createDate(now)
+                    .createDate(now.plusSeconds(i))
                     .viewCount(0L)
                     .downloadCount(0L)
                     .build();

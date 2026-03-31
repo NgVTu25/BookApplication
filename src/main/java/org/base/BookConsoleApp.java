@@ -1,13 +1,17 @@
 package org.base;
 
+import org.base.config.ConfigFactory;
 import org.base.model.Book;
 import org.base.repository.BookFactory;
 import org.base.repository.BookRepository;
+
 import org.base.util.INFLUXUtil;
 import org.base.util.JPAUtil;
 import org.base.util.MongoUtil;
 import org.base.util.RedisUtil;
+
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 import java.util.Arrays;
@@ -17,13 +21,12 @@ public class BookConsoleApp implements CommandLineRunner {
 
     private final Scanner scanner = new Scanner(System.in);
 
-    private final String influxUrl = "http://localhost:8086/";
-    private final String bucket = "java";
-    private final String token = "CBap0zc0WPeZmTgNzNBF5s8mdj1cHzbmw8_0cIEumo-MrLRsUblN1XwRmRDUx8FjfSm0MjDe_LsqK71aX9kREQ==";
-    private final String org = "java";
-    private final String sqlUrl = "jdbc:mysql://localhost:3306/book_db";
-    private final String sqlUsername = "root";
-    private final String sqlPassword = "tubeo1012";
+    private final ConfigFactory configFactory = ConfigFactory.getInstance();
+
+    String url = configFactory.getConfig("influxdb.url");
+    String token = configFactory.getConfig("influxdb.token");
+    String org = configFactory.getConfig("influxdb.org");
+    String bucket = configFactory.getConfig("influxdb.bucket");
 
     @Override
     public void run(String... args) {
@@ -32,6 +35,9 @@ public class BookConsoleApp implements CommandLineRunner {
         System.out.println("=== BẮT ĐẦU KHỞI TẠO KẾT NỐI ===");
 
         try {
+            String sqlUrl = "jdbc:mysql://localhost:3306/book_db";
+            String sqlUsername = "root";
+            String sqlPassword = "tubeo1012";
             JPAUtil.init(sqlUrl, sqlUsername, sqlPassword);
             System.out.println("[OK] Đã kết nối SQL.");
         } catch (Exception e) {
@@ -53,7 +59,7 @@ public class BookConsoleApp implements CommandLineRunner {
         }
 
         try {
-            INFLUXUtil.init(influxUrl, token, org, bucket);
+            INFLUXUtil.init(url, token, org, bucket);
             System.out.println("[OK] Đã kết nối InfluxDB.");
         } catch (Exception e) {
             System.err.println("[LỖI CHI TIẾT INFLUXDB]: " + e.getMessage());
@@ -84,7 +90,6 @@ public class BookConsoleApp implements CommandLineRunner {
                 System.out.println("Nhập loại DB (1: sql, 2: mongodb, 3: redis, 4: influx): ");
                 int dbType;
                 try {
-                    // SỬA LỖI TẠI ĐÂY: Dùng nextLine rồi ép kiểu để không bị kẹt bộ đệm
                     dbType = Integer.parseInt(scanner.nextLine().trim());
                 } catch (NumberFormatException e) {
                     System.out.println("-> [LỖI] Loại DB không hợp lệ, vui lòng nhập số!");
@@ -119,12 +124,8 @@ public class BookConsoleApp implements CommandLineRunner {
 
         BookRepository database = BookFactory.getRepository(dbType);
 
-        if (database == null) {
-            System.out.println("-> [LỖI] Không tìm thấy DB tương ứng với lựa chọn: " + dbType);
-            return;
-        }
-
         switch (choice) {
+
             case 1 -> {
                 Book book = new Book();
                 System.out.print("Nhập tác giả: "); book.setAuthor(scanner.nextLine());
@@ -143,22 +144,29 @@ public class BookConsoleApp implements CommandLineRunner {
                 database.save(book);
                 System.out.println("Lưu thành công!");
             }
+
             case 2 -> {
                 System.out.print("Từ khóa tên: "); String title = scanner.nextLine();
                 System.out.print("Từ khóa tác giả: "); String author = scanner.nextLine();
                 System.out.print("Từ khóa nội dung: "); String content = scanner.nextLine();
 
-                var result = database.search(title, author, content, Pageable.ofSize(100));
-                if (result == null || result.isEmpty()) {
+                System.out.println("Nhập số sách muốn tìm kiếm: ");
+                String pageInput = scanner.nextLine();
+
+                var result = database.search(title, author, content, PageRequest.of(0,
+                        pageInput.isEmpty() ? 0 : Integer.parseInt(pageInput.trim()))).getContent();
+
+                if (result.isEmpty()) {
                     System.out.println("Không tìm thấy kết quả nào.");
                 } else {
                     System.out.println("-> KẾT QUẢ TÌM KIẾM:");
                     result.forEach(System.out::println);
                 }
             }
+
             case 3 -> {
                 System.out.println("Nhập id sách cần sửa:");
-                Long id;
+                long id;
                 try {
                     id = Long.parseLong(scanner.nextLine().trim());
                 } catch (NumberFormatException e) {
@@ -175,25 +183,34 @@ public class BookConsoleApp implements CommandLineRunner {
                 database.update(id, book);
                 System.out.println("Cập nhật thành công!");
             }
+
             case 4 -> {
                 System.out.print("Nhập các ID cách nhau bởi dấu phẩy: ");
                 String ids = scanner.nextLine();
                 database.deleteByIds(Arrays.asList(ids.split(",")));
                 System.out.println("Đã gửi yêu cầu xóa.");
             }
+
             case 5 -> {
                 System.out.print("Nhập tên tác giả: ");
                 String author = scanner.nextLine();
                 var stats = database.statisticByAuthor(author);
                 System.out.println("Kết quả thống kê: " + stats);
             }
+
             case 6 -> {
-                var books = database.findAllPaging(Pageable.ofSize(100));
-                if (books == null || books.isEmpty()) {
+                System.out.println("Nhập số sách muốn tìm kiếm: ");
+                String pageInput = scanner.nextLine();
+                long startStatInflux = System.currentTimeMillis();
+                var books = database.findAllPaging(PageRequest.of(0, pageInput.isEmpty() ?
+                        0 : Integer.parseInt(pageInput.trim()))).getContent();
+                long endStatInfluxd = System.currentTimeMillis();
+                if (books.isEmpty()) {
                     System.out.println("Chưa có sách nào trong database này.");
                 } else {
                     books.forEach(System.out::println);
                 }
+                System.out.println("-> Thời gian LẤY TẤT CẢ: " + (endStatInfluxd - startStatInflux) + " ms");
             }
         }
     }

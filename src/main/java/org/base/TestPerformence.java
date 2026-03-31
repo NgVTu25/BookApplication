@@ -14,19 +14,19 @@ import java.util.Map;
 
 public class TestPerformence {
 
-    private static String influxUrl = "http://localhost:8086/";
+    private static final String influxUrl = "http://localhost:8086/";
 
-    private static String bucket = "java";
+    private static final String bucket = "java";
 
-    private static String token = "CBap0zc0WPeZmTgNzNBF5s8mdj1cHzbmw8_0cIEumo-MrLRsUblN1XwRmRDUx8FjfSm0MjDe_LsqK71aX9kREQ==";
+    private static final String token = "CBap0zc0WPeZmTgNzNBF5s8mdj1cHzbmw8_0cIEumo-MrLRsUblN1XwRmRDUx8FjfSm0MjDe_LsqK71aX9kREQ==";
 
-    private static String org = "java";
+    private static final String org = "java";
 
-    private static String sqlUrl = "jdbc:mysql://localhost:3306/book_db";
+    private static final String sqlUrl = "jdbc:mysql://localhost:3306/book_db";
 
-    private static String sqlUsername = "root";
+    private static final String sqlUsername = "root";
 
-    private static String sqlPassword = "tubeo1012";
+    private static final String sqlPassword = "tubeo1012";
 
     public static void main(String[] args) {
         System.out.println("=== BẮT ĐẦU KHỞI TẠO KẾT NỐI ===");
@@ -111,16 +111,15 @@ public class TestPerformence {
             long endStatMongodb = System.currentTimeMillis();
             System.out.println(MongodbStats);
             System.out.println("-> Thời gian THỐNG KÊ Mongodb: " + (endStatMongodb - startStatMongodb) + " ms");
-//
+
             System.out.println("\n===============================");
             System.out.println("          TEST INFLUX            ");
             System.out.println("=================================");
-            BookRepository influxd = new InfluxdbBookRepository();
-            influxd.generateAndInsertOneMillionBooks();
-
+            BookRepository influx = new InfluxdbBookRepository();
+            influx.generateAndInsertOneMillionBooks();
 
             long startStatInflux = System.currentTimeMillis();
-            Map<String, Object> InfluxStats = influxd.statisticByAuthor("Tolkien");
+            Map<String, Object> InfluxStats = influx.statisticByAuthor("Tolkien");
             long endStatInfluxd = System.currentTimeMillis();
             System.out.println(InfluxStats);
             System.out.println("-> Thời gian THỐNG KÊ influx: " + (endStatInfluxd - startStatInflux) + " ms");

@@ -14,7 +14,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
@@ -36,11 +36,17 @@ public class MongodbBookRepository implements BookRepository {
         List<Bson> updatesList = new ArrayList<>();
 
         if (book.getTitle() != null) updatesList.add(Updates.set("title", book.getTitle()));
+
         if (book.getAuthor() != null) updatesList.add(Updates.set("author", book.getAuthor()));
+
         if (book.getCategory() != null) updatesList.add(Updates.set("category", book.getCategory()));
+
         if (book.getContent() != null) updatesList.add(Updates.set("content", book.getContent()));
+
         if (book.getViewCount() != null) updatesList.add(Updates.set("viewCount", book.getViewCount()));
+
         if (book.getDownloadCount() != null) updatesList.add(Updates.set("downloadCount", book.getDownloadCount()));
+
         if (book.getCreateDate() != null) updatesList.add(Updates.set("createDate", book.getCreateDate().toString()));
 
         if (!updatesList.isEmpty()) {
@@ -55,9 +61,11 @@ public class MongodbBookRepository implements BookRepository {
         if (title != null && !title.isEmpty()) {
             filters.add(Filters.regex("title", Pattern.compile(title, Pattern.CASE_INSENSITIVE)));
         }
+
         if (author != null && !author.isEmpty()) {
             filters.add(Filters.regex("author", Pattern.compile(author, Pattern.CASE_INSENSITIVE)));
         }
+
         if (content != null && !content.isEmpty()) {
             filters.add(Filters.regex("content", Pattern.compile(content, Pattern.CASE_INSENSITIVE)));
         }
@@ -158,7 +166,7 @@ public class MongodbBookRepository implements BookRepository {
 
         String createDate = doc.getString("createDate");
         if (createDate != null) {
-            book.setCreateDate(LocalDateTime.parse(createDate));
+            book.setCreateDate(Instant.now());
         }
 
         return book;

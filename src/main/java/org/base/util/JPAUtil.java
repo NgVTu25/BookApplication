@@ -23,7 +23,7 @@ public class JPAUtil {
 
             props.put("hibernate.dialect", "org.hibernate.dialect.MySQLDialect");
             props.put("hibernate.hbm2ddl.auto", "update"); 
-            props.put("hibernate.show_sql", "true");
+            props.put("hibernate.show_sql", "false");
 
             emf = Persistence.createEntityManagerFactory("sqldb", props);
         }
