@@ -41,7 +41,6 @@ public class SqlBookRepository implements BookRepository {
             params.forEach(countQuery::setParameter);
             long total = countQuery.getSingleResult();
 
-            em.close();
             return new PageImpl<>(resultList, pageable, total);
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -54,6 +53,8 @@ public class SqlBookRepository implements BookRepository {
         EntityManager em = getEm();
 
         List<Long> cleanIds;
+        int batchSize = 500;
+
         try {
             cleanIds = ids.stream()
                     .filter(id -> id != null && !id.trim().isEmpty())
@@ -63,24 +64,16 @@ public class SqlBookRepository implements BookRepository {
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("Danh sách id chứa giá trị không hợp lệ", e);
         }
+        for (Long id : cleanIds) {
+            System.out.println(id);
+        }
 
-            for (Long id : cleanIds) {
-                System.out.println(id);
-            }
+        for (int i = 0; i < cleanIds.size(); i += batchSize) {
+            List<Long> batch = cleanIds.subList(i, Math.min(i + batchSize, cleanIds.size()));
 
-        try {
-            em.getTransaction().begin();
-            String jpql = "DELETE FROM Book b WHERE b.id IN :ids";
-                System.out.println("Đã xóa id" + cleanIds);
-            em.createQuery(jpql).setParameter("ids", cleanIds).executeUpdate();
-            em.getTransaction().commit();
-            em.close();
-        } catch (Exception e) {
-            if (em.getTransaction().isActive()) {
-                em.getTransaction().rollback();
-            }
-            e.printStackTrace();
-            throw e;
+            em.createQuery("DELETE FROM Book b WHERE b.id IN :ids")
+                    .setParameter("ids", batch)
+                    .executeUpdate();
         }
     }
 
@@ -117,7 +110,7 @@ public class SqlBookRepository implements BookRepository {
             for (int i = 0; i < books.size(); i++) {
                 em.persist(books.get(i));
 
-                if (i % 1000 == 0 && i > 0) {
+                if (i % 500 == 0 && i > 0) {
                     em.flush();
                     em.clear();
                 }
@@ -172,7 +165,7 @@ public class SqlBookRepository implements BookRepository {
                 .setMaxResults(pageable.getPageSize())
                 .getResultList();
 
-        Long total = em.createQuery("SELECT COUNT(b) FROM Book b ORDER BY b.id DESC", Long.class)
+        Long total = em.createQuery("SELECT COUNT(b) FROM Book b", Long.class)
                 .getSingleResult();
 
         em.close();

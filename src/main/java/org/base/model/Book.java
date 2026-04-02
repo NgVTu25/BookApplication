@@ -2,14 +2,10 @@ package org.base.model;
 
 import com.influxdb.annotations.Column;
 import com.influxdb.annotations.Measurement;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 
 @Data
 @Entity
@@ -20,7 +16,6 @@ import java.time.LocalDateTime;
 public class Book {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column
     private Long id;
     @Column(tag = true)
     private String author;

@@ -63,23 +63,23 @@ public class TestPerformence {
         }
 
         try {
-            System.out.println("\n================================");
-            System.out.println("        TEST SQL (JPA)           ");
-            System.out.println("=================================");
-            BookRepository sqlRepo = new SqlBookRepository();
-
-            System.out.println("Đang tạo và lưu 1.000.000 bản ghi ");
-            long startSql = System.currentTimeMillis();
-            sqlRepo.generateAndInsertOneMillionBooks();
-            long endSql = System.currentTimeMillis();
-            System.out.println("-> Thời gian INSERT SQL: " + (endSql - startSql) + " ms");
-
-            System.out.println("\nĐang thống kê sách của tác giả 'Tolkien' trên SQL...");
-            long startStatSql = System.currentTimeMillis();
-            Map<String, Object> sqlStats = sqlRepo.statisticByAuthor("Tolkien");
-            long endStatSql = System.currentTimeMillis();
-            System.out.println(sqlStats);
-            System.out.println("-> Thời gian THỐNG KÊ SQL: " + (endStatSql - startStatSql) + " ms");
+//            System.out.println("\n================================");
+//            System.out.println("        TEST SQL (JPA)           ");
+//            System.out.println("=================================");
+//            BookRepository sqlRepo = new SqlBookRepository();
+//
+//            System.out.println("Đang tạo và lưu 1.000.000 bản ghi ");
+//            long startSql = System.currentTimeMillis();
+//            sqlRepo.generateAndInsertOneMillionBooks();
+//            long endSql = System.currentTimeMillis();
+//            System.out.println("-> Thời gian INSERT SQL: " + (endSql - startSql) + " ms");
+//
+//            System.out.println("\nĐang thống kê sách của tác giả 'Tolkien' trên SQL...");
+//            long startStatSql = System.currentTimeMillis();
+//            Map<String, Object> sqlStats = sqlRepo.statisticByAuthor("Tolkien");
+//            long endStatSql = System.currentTimeMillis();
+//            System.out.println(sqlStats);
+//            System.out.println("-> Thời gian THỐNG KÊ SQL: " + (endStatSql - startStatSql) + " ms");
 
             System.out.println("\n================================");
             System.out.println("          TEST REDIS             ");
@@ -91,38 +91,38 @@ public class TestPerformence {
             redisRepo.generateAndInsertOneMillionBooks();
             long endRedis = System.currentTimeMillis();
             System.out.println("-> Thời gian INSERT Redis: " + (endRedis - startRedis) + " ms");
+//
+//            System.out.println("\nĐang lấy thống kê của tác giả 'Tolkien' trên Redis...");
+//            long startStatRedis = System.currentTimeMillis();
+//            Map<String, Object> redisStats = redisRepo.statisticByAuthor("Tolkien");
+//            long endStatRedis = System.currentTimeMillis();
+//            System.out.println(redisStats);
+//            System.out.println("-> Thời gian THỐNG KÊ Redis: " + (endStatRedis - startStatRedis) + " ms");
+//
+//            System.out.println("\n================================");
+//            System.out.println("          TEST MONGODB            ");
+//            System.out.println("=================================");
+//            BookRepository mongodbRepo = new MongodbBookRepository();
+//            mongodbRepo.generateAndInsertOneMillionBooks();
+//
+//
+//            long startStatMongodb = System.currentTimeMillis();
+//            Map<String, Object> MongodbStats = mongodbRepo.statisticByAuthor("Tolkien");
+//            long endStatMongodb = System.currentTimeMillis();
+//            System.out.println(MongodbStats);
+//            System.out.println("-> Thời gian THỐNG KÊ Mongodb: " + (endStatMongodb - startStatMongodb) + " ms");
 
-            System.out.println("\nĐang lấy thống kê của tác giả 'Tolkien' trên Redis...");
-            long startStatRedis = System.currentTimeMillis();
-            Map<String, Object> redisStats = redisRepo.statisticByAuthor("Tolkien");
-            long endStatRedis = System.currentTimeMillis();
-            System.out.println(redisStats);
-            System.out.println("-> Thời gian THỐNG KÊ Redis: " + (endStatRedis - startStatRedis) + " ms");
-
-            System.out.println("\n================================");
-            System.out.println("          TEST MONGODB            ");
-            System.out.println("=================================");
-            BookRepository mongodbRepo = new MongodbBookRepository();
-            mongodbRepo.generateAndInsertOneMillionBooks();
-
-
-            long startStatMongodb = System.currentTimeMillis();
-            Map<String, Object> MongodbStats = mongodbRepo.statisticByAuthor("Tolkien");
-            long endStatMongodb = System.currentTimeMillis();
-            System.out.println(MongodbStats);
-            System.out.println("-> Thời gian THỐNG KÊ Mongodb: " + (endStatMongodb - startStatMongodb) + " ms");
-
-            System.out.println("\n===============================");
-            System.out.println("          TEST INFLUX            ");
-            System.out.println("=================================");
-            BookRepository influx = new InfluxdbBookRepository();
-            influx.generateAndInsertOneMillionBooks();
-
-            long startStatInflux = System.currentTimeMillis();
-            Map<String, Object> InfluxStats = influx.statisticByAuthor("Tolkien");
-            long endStatInfluxd = System.currentTimeMillis();
-            System.out.println(InfluxStats);
-            System.out.println("-> Thời gian THỐNG KÊ influx: " + (endStatInfluxd - startStatInflux) + " ms");
+//            System.out.println("\n===============================");
+//            System.out.println("          TEST INFLUX            ");
+//            System.out.println("=================================");
+//            BookRepository influx = new InfluxdbBookRepository();
+//            influx.generateAndInsertOneMillionBooks();
+//
+//            long startStatInflux = System.currentTimeMillis();
+//            Map<String, Object> InfluxStats = influx.statisticByAuthor("Tolkien");
+//            long endStatInfluxd = System.currentTimeMillis();
+//            System.out.println(InfluxStats);
+//            System.out.println("-> Thời gian THỐNG KÊ influx: " + (endStatInfluxd - startStatInflux) + " ms");
 
         } catch (Exception e) {
             e.printStackTrace();

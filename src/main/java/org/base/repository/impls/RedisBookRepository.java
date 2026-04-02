@@ -11,8 +11,6 @@ import redis.clients.jedis.Jedis;
 import redis.clients.jedis.Pipeline;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -35,6 +33,10 @@ public class RedisBookRepository implements BookRepository {
         return "author:" + normalize(author) + ":books";
     }
 
+    private String titleBooksKey(String title) {
+        return "title:" + normalize(title) + ":books";
+    }
+
     private String authorStatsKey(String author) {
         return "stats:author:" + normalize(author);
     }
@@ -55,6 +57,10 @@ public class RedisBookRepository implements BookRepository {
         jedis.sadd(authorBooksKey(book.getAuthor()), id);
         jedis.hincrBy(authorStatsKey(book.getAuthor()), "total", 1);
 
+        if (book.getTitle() != null && !book.getTitle().isEmpty()) {
+            jedis.sadd(titleBooksKey(book.getTitle()), id);
+        }
+
         if (book.getCategory() != null && !book.getCategory().trim().isEmpty()) {
             jedis.hincrBy(authorStatsKey(book.getAuthor()), "category:" + book.getCategory(), 1);
         }
@@ -66,6 +72,11 @@ public class RedisBookRepository implements BookRepository {
         String id = String.valueOf(book.getId());
 
         jedis.srem(authorBooksKey(book.getAuthor()), id);
+
+        if (book.getTitle() != null && !book.getTitle().isEmpty()) {
+            jedis.srem(titleBooksKey(book.getTitle()), id);
+        }
+
         jedis.hincrBy(authorStatsKey(book.getAuthor()), "total", -1);
 
         if (book.getCategory() != null && !book.getCategory().trim().isEmpty()) {
@@ -130,24 +141,78 @@ public class RedisBookRepository implements BookRepository {
         List<Book> result = new ArrayList<>();
 
         try (Jedis jedis = RedisUtil.getConnection()) {
-            if (author != null && !author.trim().isEmpty()) {
-                Set<String> bookIds = jedis.smembers(authorBooksKey(author));
 
-                addMatchingBooks(new ArrayList<>(bookIds), name, jedis, gson, result);
-            } else {
-                List<String> ids = jedis.lrange(BOOKS_ALL_KEY, 0, -1);
-                addMatchingBooks(ids, name, jedis, gson, result);
+            Set<String> idSet = new HashSet<>();
+
+            if (name != null && !name.trim().isEmpty()) {
+                idSet.addAll(jedis.smembers(titleBooksKey(name)));
+            }
+
+            if (author != null && !author.trim().isEmpty()) {
+                Set<String> authorIds = jedis.smembers(authorBooksKey(author));
+
+                if (!idSet.isEmpty()) {
+                    idSet.retainAll(authorIds);
+                } else {
+                    idSet.addAll(authorIds);
+                }
+            }
+
+            if (idSet.isEmpty()) {
+                int start = (int) pageable.getOffset();
+                int end = start + pageable.getPageSize() - 1;
+
+                List<String> ids = jedis.lrange(BOOKS_ALL_KEY, start, end);
+                return buildPageFromIds(ids, pageable, jedis);
+            }
+
+            List<String> idList = new ArrayList<>(idSet);
+
+            int start = (int) pageable.getOffset();
+            int end = Math.min(start + pageable.getPageSize(), idList.size());
+
+            if (start >= idList.size()) {
+                return new PageImpl<>(Collections.emptyList(), pageable, idList.size());
+            }
+
+            List<String> pageIds = idList.subList(start, end);
+
+            return buildPageFromIds(pageIds, pageable, jedis, idList.size());
+        }
+    }
+
+    private Page<Book> buildPageFromIds(List<String> ids, Pageable pageable, Jedis jedis) {
+        return buildPageFromIds(ids, pageable, jedis, ids.size());
+    }
+
+    private Page<Book> buildPageFromIds(List<String> ids, Pageable pageable, Jedis jedis, long total) {
+        List<Book> books = new ArrayList<>();
+
+        if (ids == null || ids.isEmpty()) {
+            return new PageImpl<>(books, pageable, total);
+        }
+
+        int batchSize = 200; // 🔥 chống chết Redis
+
+        for (int i = 0; i < ids.size(); i += batchSize) {
+            int end = Math.min(i + batchSize, ids.size());
+
+            List<String> batchIds = ids.subList(i, end);
+
+            String[] keys = batchIds.stream()
+                    .map(id -> "book:" + id)
+                    .toArray(String[]::new);
+
+            List<String> jsons = jedis.mget(keys);
+
+            for (String json : jsons) {
+                if (json != null) {
+                    books.add(gson.fromJson(json, Book.class));
+                }
             }
         }
 
-        int start = (int) pageable.getOffset();
-        int end = Math.min(start + pageable.getPageSize(), result.size());
-
-        List<Book> pageContent = (start >= result.size())
-                ? new ArrayList<>()
-                : result.subList(start, end);
-
-        return new PageImpl<>(pageContent, pageable, result.size());
+        return new PageImpl<>(books, pageable, total);
     }
 
     private void addMatchingBooks(List<String> ids, String name, Jedis jedis, Gson gson, List<Book> result) {

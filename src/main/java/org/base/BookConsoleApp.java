@@ -12,7 +12,6 @@ import org.base.util.RedisUtil;
 
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 
 import java.util.Arrays;
 import java.util.Scanner;
@@ -30,7 +29,6 @@ public class BookConsoleApp implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        boolean running = true;
 
         System.out.println("=== BẮT ĐẦU KHỞI TẠO KẾT NỐI ===");
 
@@ -65,7 +63,7 @@ public class BookConsoleApp implements CommandLineRunner {
             System.err.println("[LỖI CHI TIẾT INFLUXDB]: " + e.getMessage());
         }
 
-        while (running) {
+        while (true) {
             printMainMenu();
             String input = scanner.nextLine().trim();
 
@@ -80,7 +78,6 @@ public class BookConsoleApp implements CommandLineRunner {
             }
 
             if (choice == 0) {
-                running = false;
                 System.out.println("Đang thoát chương trình...");
                 System.exit(0);
                 continue;
@@ -146,7 +143,7 @@ public class BookConsoleApp implements CommandLineRunner {
             }
 
             case 2 -> {
-                System.out.print("Từ khóa tên: "); String title = scanner.nextLine();
+                System.out.print("Từ khóa Sách: "); String title = scanner.nextLine();
                 System.out.print("Từ khóa tác giả: "); String author = scanner.nextLine();
                 System.out.print("Từ khóa nội dung: "); String content = scanner.nextLine();
 
@@ -202,15 +199,18 @@ public class BookConsoleApp implements CommandLineRunner {
                 System.out.println("Nhập số sách muốn tìm kiếm: ");
                 String pageInput = scanner.nextLine();
                 long startStatInflux = System.currentTimeMillis();
+
                 var books = database.findAllPaging(PageRequest.of(0, pageInput.isEmpty() ?
                         0 : Integer.parseInt(pageInput.trim()))).getContent();
-                long endStatInfluxd = System.currentTimeMillis();
+                long endStatInflux = System.currentTimeMillis();
+
                 if (books.isEmpty()) {
                     System.out.println("Chưa có sách nào trong database này.");
                 } else {
                     books.forEach(System.out::println);
                 }
-                System.out.println("-> Thời gian LẤY TẤT CẢ: " + (endStatInfluxd - startStatInflux) + " ms");
+
+                System.out.println("-> Thời gian LẤY TẤT CẢ: " + (endStatInflux - startStatInflux) + " ms");
             }
         }
     }

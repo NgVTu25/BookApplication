@@ -11,7 +11,7 @@ public class INFLUXUtil {
     private static String org;
     private static String bucket;
 
-    public static synchronized void init(String url, String token, String organization, String bucketName) {
+    public static void init(String url, String token, String organization, String bucketName) {
         if (client != null) {
             System.out.println("InfluxDB đã được khởi tạo từ trước.");
             return;
@@ -22,6 +22,7 @@ public class INFLUXUtil {
             bucket = bucketName;
 
             OkHttpClient.Builder httpClient = new OkHttpClient.Builder()
+                    .callTimeout(3, TimeUnit.MINUTES)
                     .readTimeout(3, TimeUnit.MINUTES)
                     .writeTimeout(3, TimeUnit.MINUTES)
                     .connectTimeout(3, TimeUnit.MINUTES);
@@ -38,12 +39,13 @@ public class INFLUXUtil {
 
             HealthCheck health = client.health();
             if (health.getStatus() == HealthCheck.StatusEnum.PASS) {
-                System.out.println("[OK] Đã kết nối InfluxDB thành công.");
+                System.out.println("[OK] Đã kết nối InfluxDB thành công (Timeout 3 phút).");
             } else {
                 System.err.println("[LỖI] Không thể ping tới InfluxDB.");
             }
         } catch (Exception e) {
             System.err.println("[LỖI] Khởi tạo InfluxDB thất bại: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -56,9 +58,9 @@ public class INFLUXUtil {
         return getClient().getWriteApiBlocking();
     }
 
-     public static WriteApi getWriteApi() {
-         return getClient().makeWriteApi();
-     }
+    public static WriteApi getWriteApi() {
+        return getClient().makeWriteApi();
+    }
 
     public static String getOrg() { return org; }
     public static String getBucket() { return bucket; }
