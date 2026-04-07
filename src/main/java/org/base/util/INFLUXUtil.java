@@ -62,8 +62,13 @@ public class INFLUXUtil {
         return getClient().makeWriteApi();
     }
 
-    public static String getOrg() { return org; }
-    public static String getBucket() { return bucket; }
+    public static String getOrg() {
+        return org;
+    }
+
+    public static String getBucket() {
+        return bucket;
+    }
 
     public static void close() {
         if (client != null) {

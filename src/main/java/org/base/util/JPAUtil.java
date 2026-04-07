@@ -22,7 +22,7 @@ public class JPAUtil {
             props.put("jakarta.persistence.jdbc.driver", "com.mysql.cj.jdbc.Driver");
 
             props.put("hibernate.dialect", "org.hibernate.dialect.MySQLDialect");
-            props.put("hibernate.hbm2ddl.auto", "update"); 
+            props.put("hibernate.hbm2ddl.auto", "update");
             props.put("hibernate.show_sql", "false");
 
             emf = Persistence.createEntityManagerFactory("sqldb", props);

@@ -285,7 +285,7 @@ public class InfluxdbBookRepository implements BookRepository {
                         "r._field == \"category\" or " +
                         "r._field == \"title\") " +
                         "|> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\") " +
-                        "|> keep(columns: [\"_time\", \"author\", \"category\", \"title\"]) " +
+                        "|> keep(columns: [\"_time\", \"author\", \"category\", \"title\", \"id\"]) " +
                         "|> group() " +
                         "|> sort(columns: [\"_time\"], desc: true) " +
                         "|> limit(n: %d, offset: %d)",

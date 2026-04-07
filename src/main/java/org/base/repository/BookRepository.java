@@ -21,7 +21,7 @@ public interface BookRepository {
         long start = System.currentTimeMillis();
         Instant now = Instant.now();
 
-        for (int i = 1; i <= 1000000; i++) {
+        for (int i = 1; i <= 1_000_000; i++) {
 
             Book book = Book.builder()
                     .author(authors[i % authors.length])

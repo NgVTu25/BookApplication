@@ -4,12 +4,10 @@ import org.base.config.ConfigFactory;
 import org.base.model.Book;
 import org.base.repository.BookFactory;
 import org.base.repository.BookRepository;
-
 import org.base.util.INFLUXUtil;
 import org.base.util.JPAUtil;
 import org.base.util.MongoUtil;
 import org.base.util.RedisUtil;
-
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.data.domain.PageRequest;
 
@@ -43,7 +41,7 @@ public class BookConsoleApp implements CommandLineRunner {
         }
 
         try {
-            RedisUtil.init("localhost", 6379);
+            RedisUtil.init("localhost", 6379, 0);
             System.out.println("[OK] Đã kết nối Redis.");
         } catch (Exception e) {
             System.err.println("[LỖI] Không thể kết nối Redis. Chắc chắn bạn đã bật Redis Server chưa?");
@@ -125,14 +123,20 @@ public class BookConsoleApp implements CommandLineRunner {
 
             case 1 -> {
                 Book book = new Book();
-                System.out.print("Nhập tác giả: "); book.setAuthor(scanner.nextLine());
-                System.out.print("Nhập thể loại: "); book.setCategory(scanner.nextLine());
-                System.out.print("Nhập tên sách: "); book.setTitle(scanner.nextLine());
-                System.out.print("Nhập nội dung: "); book.setContent(scanner.nextLine());
+                System.out.print("Nhập tác giả: ");
+                book.setAuthor(scanner.nextLine());
+                System.out.print("Nhập thể loại: ");
+                book.setCategory(scanner.nextLine());
+                System.out.print("Nhập tên sách: ");
+                book.setTitle(scanner.nextLine());
+                System.out.print("Nhập nội dung: ");
+                book.setContent(scanner.nextLine());
 
                 try {
-                    System.out.print("Nhập số lượt xem: "); book.setViewCount(Long.parseLong(scanner.nextLine()));
-                    System.out.print("Nhập số lượt tải: "); book.setDownloadCount(Long.parseLong(scanner.nextLine()));
+                    System.out.print("Nhập số lượt xem: ");
+                    book.setViewCount(Long.parseLong(scanner.nextLine()));
+                    System.out.print("Nhập số lượt tải: ");
+                    book.setDownloadCount(Long.parseLong(scanner.nextLine()));
                 } catch (NumberFormatException e) {
                     System.out.println("-> [LỖI] Lượt xem/tải phải là số!");
                     return;
@@ -143,9 +147,13 @@ public class BookConsoleApp implements CommandLineRunner {
             }
 
             case 2 -> {
-                System.out.print("Từ khóa Sách: "); String title = scanner.nextLine();
-                System.out.print("Từ khóa tác giả: "); String author = scanner.nextLine();
-                System.out.print("Từ khóa nội dung: "); String content = scanner.nextLine();
+                Long start = System.currentTimeMillis();
+                System.out.print("Từ khóa Sách: ");
+                String title = scanner.nextLine();
+                System.out.print("Từ khóa tác giả: ");
+                String author = scanner.nextLine();
+                System.out.print("Từ khóa nội dung: ");
+                String content = scanner.nextLine();
 
                 System.out.println("Nhập số sách muốn tìm kiếm: ");
                 String pageInput = scanner.nextLine();
@@ -159,6 +167,8 @@ public class BookConsoleApp implements CommandLineRunner {
                     System.out.println("-> KẾT QUẢ TÌM KIẾM:");
                     result.forEach(System.out::println);
                 }
+                Long end = System.currentTimeMillis();
+                System.out.println("-> Thời gian TÌM KIẾM: " + (end - start) + " ms");
             }
 
             case 3 -> {
@@ -172,10 +182,14 @@ public class BookConsoleApp implements CommandLineRunner {
                 }
 
                 Book book = new Book();
-                System.out.print("Nhập tác giả mới: "); book.setAuthor(scanner.nextLine());
-                System.out.print("Nhập thể loại mới: "); book.setCategory(scanner.nextLine());
-                System.out.print("Nhập tên sách mới: "); book.setTitle(scanner.nextLine());
-                System.out.print("Nhập nội dung mới: "); book.setContent(scanner.nextLine());
+                System.out.print("Nhập tác giả mới: ");
+                book.setAuthor(scanner.nextLine());
+                System.out.print("Nhập thể loại mới: ");
+                book.setCategory(scanner.nextLine());
+                System.out.print("Nhập tên sách mới: ");
+                book.setTitle(scanner.nextLine());
+                System.out.print("Nhập nội dung mới: ");
+                book.setContent(scanner.nextLine());
 
                 database.update(id, book);
                 System.out.println("Cập nhật thành công!");
@@ -191,18 +205,21 @@ public class BookConsoleApp implements CommandLineRunner {
             case 5 -> {
                 System.out.print("Nhập tên tác giả: ");
                 String author = scanner.nextLine();
+                Long start = System.currentTimeMillis();
                 var stats = database.statisticByAuthor(author);
+                Long end = System.currentTimeMillis();
                 System.out.println("Kết quả thống kê: " + stats);
+                System.out.println("-> Thời gian THỐNG KÊ: " + (end - start) + " ms");
             }
 
             case 6 -> {
                 System.out.println("Nhập số sách muốn tìm kiếm: ");
                 String pageInput = scanner.nextLine();
-                long startStatInflux = System.currentTimeMillis();
+                long startStat = System.currentTimeMillis();
 
                 var books = database.findAllPaging(PageRequest.of(0, pageInput.isEmpty() ?
                         0 : Integer.parseInt(pageInput.trim()))).getContent();
-                long endStatInflux = System.currentTimeMillis();
+                long endStat = System.currentTimeMillis();
 
                 if (books.isEmpty()) {
                     System.out.println("Chưa có sách nào trong database này.");
@@ -210,7 +227,7 @@ public class BookConsoleApp implements CommandLineRunner {
                     books.forEach(System.out::println);
                 }
 
-                System.out.println("-> Thời gian LẤY TẤT CẢ: " + (endStatInflux - startStatInflux) + " ms");
+                System.out.println("-> Thời gian LẤY TẤT CẢ: " + (endStat - startStat) + " ms");
             }
         }
     }
