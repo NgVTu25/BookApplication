@@ -41,7 +41,7 @@ public class BookConsoleApp implements CommandLineRunner {
         }
 
         try {
-            RedisUtil.init("localhost", 6379, 0);
+            RedisUtil.init("localhost", 6379, 1);
             System.out.println("[OK] Đã kết nối Redis.");
         } catch (Exception e) {
             System.err.println("[LỖI] Không thể kết nối Redis. Chắc chắn bạn đã bật Redis Server chưa?");

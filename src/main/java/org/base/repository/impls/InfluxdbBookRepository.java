@@ -249,6 +249,7 @@ public class InfluxdbBookRepository implements BookRepository {
                 "from(bucket: \"%s\") " +
                         "|> range(start: 0) " +
                         "|> filter(fn: (r) => r._measurement == \"%s\") " +
+                        "|> group() " +
                         "|> count()",
                 bucket, MEASUREMENT
         );
@@ -278,6 +279,7 @@ public class InfluxdbBookRepository implements BookRepository {
                         "|> limit(n: %d, offset: %d)",
                 bucket, MEASUREMENT, pageable.getPageSize(), pageable.getOffset()
         );
+        System.out.println(totalBooks);
 
         List<Book> books = mapFluxToBooks(flux);
 
