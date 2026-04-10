@@ -1,8 +1,10 @@
 package org.base.repository.impls;
 
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.EntityTransaction;
 import jakarta.persistence.TypedQuery;
+import org.base.model.AuthorStats;
 import org.base.model.Book;
 import org.base.repository.BookRepository;
 import org.base.util.JPAUtil;
@@ -50,30 +52,42 @@ public class SqlBookRepository implements BookRepository {
     @Override
     public void deleteByIds(List<String> ids) {
         if (ids == null || ids.isEmpty()) return;
-        EntityManager em = getEm();
 
-        List<Long> cleanIds;
-        int batchSize = 500;
+        EntityManager em = getEm();
+        EntityTransaction tx = em.getTransaction();
 
         try {
-            cleanIds = ids.stream()
+            List<Long> cleanIds = ids.stream()
                     .filter(id -> id != null && !id.trim().isEmpty())
                     .map(String::trim)
                     .map(Long::parseLong)
                     .toList();
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Danh sách id chứa giá trị không hợp lệ", e);
-        }
-        for (Long id : cleanIds) {
-            System.out.println(id);
-        }
 
-        for (int i = 0; i < cleanIds.size(); i += batchSize) {
-            List<Long> batch = cleanIds.subList(i, Math.min(i + batchSize, cleanIds.size()));
+            tx.begin();
 
-            em.createQuery("DELETE FROM Book b WHERE b.id IN :ids")
-                    .setParameter("ids", batch)
-                    .executeUpdate();
+            int batchSize = 500;
+            for (int i = 0; i < cleanIds.size(); i += batchSize) {
+                List<Long> batch = cleanIds.subList(i, Math.min(i + batchSize, cleanIds.size()));
+
+                em.createQuery("DELETE FROM Book b WHERE b.id IN :ids")
+                        .setParameter("ids", batch)
+                        .executeUpdate();
+            }
+
+            tx.commit();
+            System.out.println("Đã xóa thành công các ID trong SQL.");
+
+        } catch (Exception e) {
+
+            if (tx != null && tx.isActive()) {
+                tx.rollback();
+            }
+            System.err.println("Lỗi khi xóa trong SQL: " + e.getMessage());
+            throw new RuntimeException(e);
+        } finally {
+            if (em != null && em.isOpen()) {
+                em.close();
+            }
         }
     }
 
@@ -130,28 +144,31 @@ public class SqlBookRepository implements BookRepository {
 
     @Override
     public Map<String, Object> statisticByAuthor(String author) {
-        Map<String, Object> result = new HashMap<>();
         EntityManager em = getEm();
 
-        String countJpql = "SELECT COUNT(b) FROM Book b WHERE b.author = :author";
-        Long totalBooks = (Long) em.createQuery(countJpql)
-                .setParameter("author", author)
-                .getSingleResult();
-        result.put("Tổng số sách", totalBooks);
-
-        String groupJpql = "SELECT b.category, COUNT(b) FROM Book b WHERE b.author = :author GROUP BY b.category";
-        List<Object[]> categoryStats = em.createQuery(groupJpql, Object[].class)
+        String jpql = "SELECT v FROM AuthorStats v WHERE v.author = :author";
+        List<AuthorStats> statsList = em.createQuery(jpql, AuthorStats.class)
                 .setParameter("author", author)
                 .getResultList();
 
-        Map<String, Long> categoryCountMap = new HashMap<>();
-        for (Object[] row : categoryStats) {
-            String category = (String) row[0];
-            Long count = (Long) row[1];
-            categoryCountMap.put(category, count);
+        if (statsList.isEmpty()) {
+            throw new EntityNotFoundException("Không tìm thấy: " + author);
         }
-        result.put("Thống kê theo thể loại", categoryCountMap);
-        em.close();
+
+        long totalBooks = 0;
+        Map<String, Long> categoryCountMap = new HashMap<>();
+
+        for (AuthorStats s : statsList) {
+
+            totalBooks += s.getBook_count();
+
+            categoryCountMap.put(s.getCategory(), s.getBook_count());
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("author", author);
+        result.put("total_books", totalBooks);
+        result.put("categories", categoryCountMap);
 
         return result;
     }

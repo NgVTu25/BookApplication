@@ -138,7 +138,6 @@ public class RedisBookRepository implements BookRepository {
 
     @Override
     public Page<Book> search(String name, String author, String content, Pageable pageable) {
-        List<Book> result = new ArrayList<>();
 
         try (Jedis jedis = RedisUtil.getConnection()) {
 
@@ -192,7 +191,7 @@ public class RedisBookRepository implements BookRepository {
             return new PageImpl<>(books, pageable, total);
         }
 
-        int batchSize = 200; // 🔥 chống chết Redis
+        int batchSize = 200;
 
         for (int i = 0; i < ids.size(); i += batchSize) {
             int end = Math.min(i + batchSize, ids.size());
@@ -213,33 +212,6 @@ public class RedisBookRepository implements BookRepository {
         }
 
         return new PageImpl<>(books, pageable, total);
-    }
-
-    private void addMatchingBooks(List<String> ids, String name, Jedis jedis, Gson gson, List<Book> result) {
-        if (ids == null || ids.isEmpty()) {
-            return;
-        }
-        String keyword = name == null ? "" : name.trim().toLowerCase();
-
-        String[] keys = ids.stream()
-                .map(id -> "book:" + id)
-                .toArray(String[]::new);
-
-        List<String> jsons = jedis.mget(keys);
-
-        for (String json : jsons) {
-            if (json == null) {
-                continue;
-            }
-
-            Book book = gson.fromJson(json, Book.class);
-
-            boolean matchName = keyword.isEmpty()
-                    || (book.getTitle() != null && book.getTitle().toLowerCase().contains(keyword));
-            if (matchName) {
-                result.add(book);
-            }
-        }
     }
 
     @Override

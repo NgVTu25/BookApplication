@@ -7,6 +7,7 @@ import okhttp3.OkHttpClient;
 import java.util.concurrent.TimeUnit;
 
 public class INFLUXUtil {
+    private final static int TIMEOUT_MINUTES = 5;
     private static InfluxDBClient client;
     private static String org;
     private static String bucket;
@@ -22,10 +23,10 @@ public class INFLUXUtil {
             bucket = bucketName;
 
             OkHttpClient.Builder httpClient = new OkHttpClient.Builder()
-                    .callTimeout(3, TimeUnit.MINUTES)
-                    .readTimeout(3, TimeUnit.MINUTES)
-                    .writeTimeout(3, TimeUnit.MINUTES)
-                    .connectTimeout(3, TimeUnit.MINUTES);
+                    .callTimeout(TIMEOUT_MINUTES, TimeUnit.MINUTES)
+                    .readTimeout(TIMEOUT_MINUTES, TimeUnit.MINUTES)
+                    .writeTimeout(TIMEOUT_MINUTES, TimeUnit.MINUTES)
+                    .connectTimeout(TIMEOUT_MINUTES, TimeUnit.MINUTES);
 
             InfluxDBClientOptions options = InfluxDBClientOptions.builder()
                     .url(url)
