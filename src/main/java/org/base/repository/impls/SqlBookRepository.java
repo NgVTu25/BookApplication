@@ -20,30 +20,56 @@ public class SqlBookRepository implements BookRepository {
 
     @Override
     public Page<Book> search(String title, String author, String content, Pageable pageable) {
+
         StringBuilder jpql = new StringBuilder("SELECT b FROM Book b WHERE 1=1");
-        Map<String, String> params = new HashMap<>();
-
-        if (title != null && !title.trim().isEmpty()) params.put("title", "%" + title + "%");
-        if (author != null && !author.trim().isEmpty()) params.put("author", "%" + author + "%");
-        if (content != null && !content.trim().isEmpty()) params.put("content", "%" + content + "%");
-
-        params.keySet().forEach(k -> jpql.append(" AND LOWER(b.").append(k).append(") LIKE LOWER(:").append(k).append(")"));
+        StringBuilder countJpql = new StringBuilder("SELECT COUNT(b) FROM Book b WHERE 1=1");
 
         try (EntityManager em = getEm()) {
-            TypedQuery<Book> query = em.createQuery(jpql.toString(), Book.class);
 
-            params.forEach(query::setParameter);
+            if (title != null && !title.trim().isEmpty()) {
+                jpql.append(" AND LOWER(b.title) LIKE LOWER(:title)");
+                countJpql.append(" AND LOWER(b.title) LIKE LOWER(:title)");
+            }
+
+            if (author != null && !author.trim().isEmpty()) {
+                jpql.append(" AND LOWER(b.author) LIKE LOWER(:author)");
+                countJpql.append(" AND LOWER(b.author) LIKE LOWER(:author)");
+            }
+
+            if (content != null && !content.trim().isEmpty()) {
+                jpql.append(" AND LOWER(b.content) LIKE LOWER(:content)");
+                countJpql.append(" AND LOWER(b.content) LIKE LOWER(:content)");
+            }
+
+            TypedQuery<Book> query = em.createQuery(jpql.toString(), Book.class);
+            TypedQuery<Long> countQuery = em.createQuery(countJpql.toString(), Long.class);
+
+            if (title != null && !title.trim().isEmpty()) {
+                String value = "%" + title.trim() + "%";
+                query.setParameter("title", value);
+                countQuery.setParameter("title", value);
+            }
+
+            if (author != null && !author.trim().isEmpty()) {
+                String value = "%" + author.trim() + "%";
+                query.setParameter("author", value);
+                countQuery.setParameter("author", value);
+            }
+
+            if (content != null && !content.trim().isEmpty()) {
+                String value = "%" + content.trim() + "%";
+                query.setParameter("content", value);
+                countQuery.setParameter("content", value);
+            }
 
             query.setFirstResult((int) pageable.getOffset());
             query.setMaxResults(pageable.getPageSize());
-            List<Book> resultList = query.getResultList();
 
-            String countJpql = jpql.toString().replace("SELECT b", "SELECT COUNT(b)");
-            TypedQuery<Long> countQuery = em.createQuery(countJpql, Long.class);
-            params.forEach(countQuery::setParameter);
+            List<Book> resultList = query.getResultList();
             long total = countQuery.getSingleResult();
 
             return new PageImpl<>(resultList, pageable, total);
+
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
