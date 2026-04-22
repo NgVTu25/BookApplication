@@ -5,6 +5,7 @@ import com.mongodb.client.model.Accumulators;
 import com.mongodb.client.model.Aggregates;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.Updates;
+import org.base.config.ConfigFactory;
 import org.base.model.Book;
 import org.base.repository.BookRepository;
 import org.base.util.MongoUtil;
@@ -20,7 +21,8 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
 
 public class MongodbBookRepository implements BookRepository {
-    private final MongoCollection<Document> collection = MongoUtil.getCollection("books");
+    ConfigFactory configFactory = ConfigFactory.getInstance();
+    private final MongoCollection<Document> collection = MongoUtil.getCollection(configFactory.getConfig("mongodb.collection"));
 
     @Override
     public void save(Book book) {

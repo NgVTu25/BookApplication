@@ -16,11 +16,6 @@ public class ConfigFactory {
             }
             properties.load(in);
 
-            System.out.println("[DEBUG] influxdb.url = " + properties.getProperty("influxdb.url"));
-            System.out.println("[DEBUG] influxdb.token = " + properties.getProperty("influxdb.token"));
-            System.out.println("[DEBUG] influxdb.org = " + properties.getProperty("influxdb.org"));
-            System.out.println("[DEBUG] influxdb.bucket = " + properties.getProperty("influxdb.bucket"));
-
         } catch (IOException e) {
             throw new RuntimeException("Lỗi khi load application.properties", e);
         }

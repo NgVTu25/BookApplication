@@ -12,7 +12,7 @@ import java.util.Map;
 public interface BookRepository {
 
     default void generateAndInsertOneMillionBooks() {
-        int batchSize = 50;
+        int batchSize = 5000;
         List<Book> batch = new ArrayList<>(batchSize);
         String[] categories = {"Hành động", "Tình cảm", "Khoa học", "Lịch sử", "Kinh dị"};
         String[] authors = {"Nguyen Van A", "Tran Thi B", "Le Van C", "Tolkien", "J.K. Rowling"};
@@ -21,7 +21,7 @@ public interface BookRepository {
         long start = System.currentTimeMillis();
         Instant now = Instant.now();
 
-        for (int i = 1; i <= 300_000; i++) {
+        for (int i = 1; i <= 1_000_000; i++) {
 
             Book book = Book.builder()
                     .author(authors[i % authors.length])

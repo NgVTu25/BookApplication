@@ -20,42 +20,41 @@ public class BookConsoleApp implements CommandLineRunner {
 
     private final ConfigFactory configFactory = ConfigFactory.getInstance();
 
-    String url = configFactory.getConfig("influxdb.url");
-    String token = configFactory.getConfig("influxdb.token");
-    String org = configFactory.getConfig("influxdb.org");
-    String bucket = configFactory.getConfig("influxdb.bucket");
-
     @Override
     public void run(String... args) {
 
         System.out.println("=== BẮT ĐẦU KHỞI TẠO KẾT NỐI ===");
 
         try {
-            String sqlUrl = "jdbc:mysql://localhost:3306/book_db";
-            String sqlUsername = "root";
-            String sqlPassword = "tubeo1012";
-            JPAUtil.init(sqlUrl, sqlUsername, sqlPassword);
+            JPAUtil.init(configFactory.getConfig("mysql.url"), configFactory.getConfig("mysql.username"), configFactory.getConfig("mysql.password"));
             System.out.println("[OK] Đã kết nối SQL.");
         } catch (Exception e) {
             System.err.println("[LỖI CHI TIẾT MYSQL]: " + e.getMessage());
         }
 
         try {
-            RedisUtil.init("localhost", 6379, 1);
+            RedisUtil.init(
+                    configFactory.getConfig("redis.url"),
+                    Integer.parseInt(configFactory.getConfig("redis.port")),
+                    Integer.parseInt(configFactory.getConfig("redis.database")));
+
             System.out.println("[OK] Đã kết nối Redis.");
         } catch (Exception e) {
             System.err.println("[LỖI] Không thể kết nối Redis. Chắc chắn bạn đã bật Redis Server chưa?");
         }
 
         try {
-            MongoUtil.init("mongodb://localhost:27017", "book");
+            MongoUtil.init(configFactory.getConfig("mongodb.url"), configFactory.getConfig("mongodb.database"));
             System.out.println("[OK] Đã kết nối MongoDB.");
         } catch (Exception e) {
             System.err.println("[LỖI CHI TIẾT MONGODB]: " + e.getMessage());
         }
 
         try {
-            INFLUXUtil.init(url, token, org, bucket);
+            INFLUXUtil.init(configFactory.getConfig("influxdb.url"),
+                    configFactory.getConfig("influxdb.token"),
+                    configFactory.getConfig("influxdb.org"),
+                    configFactory.getConfig( "influxdb.bucket"));
             System.out.println("[OK] Đã kết nối InfluxDB.");
         } catch (Exception e) {
             System.err.println("[LỖI CHI TIẾT INFLUXDB]: " + e.getMessage());
