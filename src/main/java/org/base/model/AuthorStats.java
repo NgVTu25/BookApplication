@@ -11,11 +11,11 @@ import lombok.Data;
 @Data
 @Table(name = "view_author_stats")
 public class AuthorStats {
-    @Id
-    private String id;
+	@Id
+	private String id;
 
-    private String author;
-    private String category;
-    @Column(name = "book_count")
-    private Long book_count;
+	private String author;
+	private String category;
+	@Column(name = "book_count")
+	private Long book_count;
 }

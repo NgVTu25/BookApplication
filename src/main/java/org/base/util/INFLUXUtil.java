@@ -7,75 +7,75 @@ import okhttp3.OkHttpClient;
 import java.util.concurrent.TimeUnit;
 
 public class INFLUXUtil {
-    private final static int TIMEOUT_MINUTES = 5;
-    private static InfluxDBClient client;
-    private static String org;
-    private static String bucket;
+	private final static int TIMEOUT_MINUTES = 5;
+	private static InfluxDBClient client;
+	private static String org;
+	private static String bucket;
 
-    public static void init(String url, String token, String organization, String bucketName) {
-        if (client != null) {
-            System.out.println("InfluxDB đã được khởi tạo từ trước.");
-            return;
-        }
+	public static void init(String url, String token, String organization, String bucketName) {
+		if (client != null) {
+			System.out.println("InfluxDB đã được khởi tạo từ trước.");
+			return;
+		}
 
-        try {
-            org = organization;
-            bucket = bucketName;
+		try {
+			org = organization;
+			bucket = bucketName;
 
-            OkHttpClient.Builder httpClient = new OkHttpClient.Builder()
-                    .callTimeout(TIMEOUT_MINUTES, TimeUnit.MINUTES)
-                    .readTimeout(TIMEOUT_MINUTES, TimeUnit.MINUTES)
-                    .writeTimeout(TIMEOUT_MINUTES, TimeUnit.MINUTES)
-                    .connectTimeout(TIMEOUT_MINUTES, TimeUnit.MINUTES);
+			OkHttpClient.Builder httpClient = new OkHttpClient.Builder()
+					.callTimeout(TIMEOUT_MINUTES, TimeUnit.MINUTES)
+					.readTimeout(TIMEOUT_MINUTES, TimeUnit.MINUTES)
+					.writeTimeout(TIMEOUT_MINUTES, TimeUnit.MINUTES)
+					.connectTimeout(TIMEOUT_MINUTES, TimeUnit.MINUTES);
 
-            InfluxDBClientOptions options = InfluxDBClientOptions.builder()
-                    .url(url)
-                    .authenticateToken(token.toCharArray())
-                    .org(org)
-                    .bucket(bucket)
-                    .okHttpClient(httpClient)
-                    .build();
+			InfluxDBClientOptions options = InfluxDBClientOptions.builder()
+					.url(url)
+					.authenticateToken(token.toCharArray())
+					.org(org)
+					.bucket(bucket)
+					.okHttpClient(httpClient)
+					.build();
 
-            client = InfluxDBClientFactory.create(options);
+			client = InfluxDBClientFactory.create(options);
 
-            HealthCheck health = client.health();
-            if (health.getStatus() == HealthCheck.StatusEnum.PASS) {
-                System.out.println("[OK] Đã kết nối InfluxDB thành công (Timeout 3 phút).");
-            } else {
-                System.err.println("[LỖI] Không thể ping tới InfluxDB.");
-            }
-        } catch (Exception e) {
-            System.err.println("[LỖI] Khởi tạo InfluxDB thất bại: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
+			HealthCheck health = client.health();
+			if (health.getStatus() == HealthCheck.StatusEnum.PASS) {
+				System.out.println("[OK] Đã kết nối InfluxDB thành công (Timeout 3 phút).");
+			} else {
+				System.err.println("[LỖI] Không thể ping tới InfluxDB.");
+			}
+		} catch (Exception e) {
+			System.err.println("[LỖI] Khởi tạo InfluxDB thất bại: " + e.getMessage());
+			e.printStackTrace();
+		}
+	}
 
-    public static InfluxDBClient getClient() {
-        if (client == null) throw new IllegalStateException("INFLUXUtil chưa được init!");
-        return client;
-    }
+	public static InfluxDBClient getClient() {
+		if (client == null) throw new IllegalStateException("INFLUXUtil chưa được init!");
+		return client;
+	}
 
-    public static WriteApiBlocking getWriteApiBlocking() {
-        return getClient().getWriteApiBlocking();
-    }
+	public static WriteApiBlocking getWriteApiBlocking() {
+		return getClient().getWriteApiBlocking();
+	}
 
-    public static WriteApi getWriteApi() {
-        return getClient().makeWriteApi();
-    }
+	public static WriteApi getWriteApi() {
+		return getClient().makeWriteApi();
+	}
 
-    public static String getOrg() {
-        return org;
-    }
+	public static String getOrg() {
+		return org;
+	}
 
-    public static String getBucket() {
-        return bucket;
-    }
+	public static String getBucket() {
+		return bucket;
+	}
 
-    public static void close() {
-        if (client != null) {
-            client.close();
-            client = null;
-            System.out.println("Đã đóng kết nối InfluxDB.");
-        }
-    }
+	public static void close() {
+		if (client != null) {
+			client.close();
+			client = null;
+			System.out.println("Đã đóng kết nối InfluxDB.");
+		}
+	}
 }

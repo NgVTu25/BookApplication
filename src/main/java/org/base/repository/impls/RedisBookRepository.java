@@ -16,314 +16,320 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class RedisBookRepository implements BookRepository {
 
-    private static final String BOOKS_ALL_KEY = "books:all";
+	private static final String BOOKS_ALL_KEY = "books:all";
 
-    private final Gson gson = new GsonBuilder()
-            .registerTypeAdapter(Instant.class, (JsonSerializer<Instant>) (src, typeOfSrc, context) ->
-                    new JsonPrimitive(src.toString()))
-            .registerTypeAdapter(Instant.class, (JsonDeserializer<Instant>) (json, typeOfT, context) ->
-                    Instant.parse(json.getAsString()))
-            .create();
+	private final Gson gson = new GsonBuilder()
+			.registerTypeAdapter(Instant.class, (JsonSerializer<Instant>) (src, typeOfSrc, context) ->
+					new JsonPrimitive(src.toString()))
+			.registerTypeAdapter(Instant.class, (JsonDeserializer<Instant>) (json, typeOfT, context) ->
+					Instant.parse(json.getAsString()))
+			.create();
 
-    private String bookKey(Long id) {
-        return "book:" + id;
-    }
+	private String bookKey(Long id) {
+		return "book:" + id;
+	}
 
-    private String authorBooksKey(String author) {
-        return "author:" + normalize(author) + ":books";
-    }
+	private String authorBooksKey(String author) {
+		return "author:" + normalize(author) + ":books";
+	}
 
-    private String titleBooksKey(String title) {
-        return "title:" + normalize(title) + ":books";
-    }
+	private String titleBooksKey(String title) {
+		return "title:" + normalize(title) + ":books";
+	}
 
-    private String authorStatsKey(String author) {
-        return "stats:author:" + normalize(author);
-    }
+	private String authorStatsKey(String author) {
+		return "stats:author:" + normalize(author);
+	}
 
-    private String normalize(String value) {
-        return value == null ? "" : value.trim().toLowerCase();
-    }
+	private String normalize(String value) {
+		return value == null ? "" : value.trim().toLowerCase();
+	}
 
-    private Long generateId() {
-        return ThreadLocalRandom.current().nextLong(1L, Long.MAX_VALUE);
-    }
+	private Long generateId() {
+		return ThreadLocalRandom.current().nextLong(1L, Long.MAX_VALUE);
+	}
 
-    private void addIndexes(Jedis jedis, Book book) {
-        if (book == null || book.getId() == null) return;
+	private void addIndexes(Jedis jedis, Book book) {
+		if (book == null || book.getId() == null) return;
 
-        String id = String.valueOf(book.getId());
+		String id = String.valueOf(book.getId());
 
-        jedis.sadd(authorBooksKey(book.getAuthor()), id);
-        jedis.hincrBy(authorStatsKey(book.getAuthor()), "total", 1);
+		jedis.sadd(authorBooksKey(book.getAuthor()), id);
+		jedis.hincrBy(authorStatsKey(book.getAuthor()), "total", 1);
 
-        if (book.getTitle() != null && !book.getTitle().isEmpty()) {
-            jedis.sadd(titleBooksKey(book.getTitle()), id);
-        }
+		if (book.getTitle() != null && !book.getTitle().isEmpty()) {
+			jedis.sadd(titleBooksKey(book.getTitle()), id);
+		}
 
-        if (book.getCategory() != null && !book.getCategory().trim().isEmpty()) {
-            jedis.hincrBy(authorStatsKey(book.getAuthor()), "category:" + book.getCategory(), 1);
-        }
-    }
+		if (book.getCategory() != null && !book.getCategory().trim().isEmpty()) {
+			jedis.hincrBy(authorStatsKey(book.getAuthor()), "category:" + book.getCategory(), 1);
+		}
+	}
 
-    private void removeIndexes(Jedis jedis, Book book) {
-        if (book == null || book.getId() == null) return;
+	private void removeIndexes(Jedis jedis, Book book) {
+		if (book == null || book.getId() == null) return;
 
-        String id = String.valueOf(book.getId());
+		String id = String.valueOf(book.getId());
 
-        jedis.srem(authorBooksKey(book.getAuthor()), id);
+		jedis.srem(authorBooksKey(book.getAuthor()), id);
 
-        if (book.getTitle() != null && !book.getTitle().isEmpty()) {
-            jedis.srem(titleBooksKey(book.getTitle()), id);
-        }
+		if (book.getTitle() != null && !book.getTitle().isEmpty()) {
+			jedis.srem(titleBooksKey(book.getTitle()), id);
+		}
 
-        jedis.hincrBy(authorStatsKey(book.getAuthor()), "total", -1);
+		jedis.hincrBy(authorStatsKey(book.getAuthor()), "total", -1);
 
-        if (book.getCategory() != null && !book.getCategory().trim().isEmpty()) {
-            jedis.hincrBy(authorStatsKey(book.getAuthor()), "category:" + book.getCategory(), -1);
-        }
-    }
+		if (book.getCategory() != null && !book.getCategory().trim().isEmpty()) {
+			jedis.hincrBy(authorStatsKey(book.getAuthor()), "category:" + book.getCategory(), -1);
+		}
+	}
 
-    @Override
-    public void save(Book book) {
-        if (book == null) return;
+	@Override
+	public void save(Book book) {
+		if (book == null) return;
 
-        if (book.getId() == null) {
-            book.setId(generateId());
-        }
+		if (book.getId() == null) {
+			book.setId(generateId());
+		}
 
-        try (Jedis jedis = RedisUtil.getConnection()) {
-            String key = bookKey(book.getId());
+		try (Jedis jedis = RedisUtil.getConnection()) {
+			String key = bookKey(book.getId());
 
-            if (jedis.exists(key)) {
-                System.out.println("Book với ID " + book.getId() + " đã tồn tại!");
-                return;
-            }
+			if (jedis.exists(key)) {
+				System.out.println("Book với ID " + book.getId() + " đã tồn tại!");
+				return;
+			}
 
-            String json = gson.toJson(book);
-            jedis.set(key, json);
+			String json = gson.toJson(book);
+			jedis.set(key, json);
 
-            jedis.rpush(BOOKS_ALL_KEY, String.valueOf(book.getId()));
-            addIndexes(jedis, book);
-        }
-    }
+			jedis.rpush(BOOKS_ALL_KEY, String.valueOf(book.getId()));
+			addIndexes(jedis, book);
+		}
+		System.out.printf("Lưu sách thành công với ID: %d%n", book.getId());
+	}
 
-    @Override
-    public void update(Long id, Book book) {
-        if (id == null || book == null) return;
+	@Override
+	public void update(Long id, Book book) {
+		if (id == null || book == null) return;
 
-        try (Jedis jedis = RedisUtil.getConnection()) {
-            String key = bookKey(id);
-            String oldJson = jedis.get(key);
+		try (Jedis jedis = RedisUtil.getConnection()) {
+			String key = bookKey(id);
+			String oldJson = jedis.get(key);
 
-            if (oldJson == null || oldJson.isEmpty()) {
-                System.out.println("Không tìm thấy sách với ID: " + id + " để cập nhật!");
-                return;
-            }
+			if (oldJson == null || oldJson.isEmpty()) {
+				System.out.println("Không tìm thấy sách với ID: " + id + " để cập nhật!");
+				return;
+			}
 
-            Book oldBook = gson.fromJson(oldJson, Book.class);
+			Book oldBook = gson.fromJson(oldJson, Book.class);
 
-            book.setId(id);
+			book.setId(id);
 
-            removeIndexes(jedis, oldBook);
+			removeIndexes(jedis, oldBook);
 
-            String newJson = gson.toJson(book);
-            jedis.set(key, newJson);
+			String newJson = gson.toJson(book);
+			jedis.set(key, newJson);
 
-            addIndexes(jedis, book);
+			addIndexes(jedis, book);
 
-            System.out.println("Cập nhật thành công sách ID: " + id);
-        }
-    }
+			System.out.println("Cập nhật thành công sách ID: " + id);
+		}
+	}
 
-    @Override
-    public Page<Book> search(String name, String author, String content, Pageable pageable) {
+	@Override
+	public Object findById(Long id) {
+		return null;
+	}
 
-        try (Jedis jedis = RedisUtil.getConnection()) {
+	@Override
+	public Page<Book> search(String name, String author, String content, Pageable pageable) {
 
-            Set<String> idSet = new HashSet<>();
+		try (Jedis jedis = RedisUtil.getConnection()) {
 
-            if (name != null && !name.trim().isEmpty()) {
-                idSet.addAll(jedis.smembers(titleBooksKey(name)));
-            }
+			Set<String> idSet = new HashSet<>();
 
-            if (author != null && !author.trim().isEmpty()) {
-                Set<String> authorIds = jedis.smembers(authorBooksKey(author));
+			if (name != null && !name.trim().isEmpty()) {
+				idSet.addAll(jedis.smembers(titleBooksKey(name)));
+			}
 
-                if (!idSet.isEmpty()) {
-                    idSet.retainAll(authorIds);
-                } else {
-                    idSet.addAll(authorIds);
-                }
-            }
+			if (author != null && !author.trim().isEmpty()) {
+				Set<String> authorIds = jedis.smembers(authorBooksKey(author));
 
-            if (idSet.isEmpty()) {
-                int start = (int) pageable.getOffset();
-                int end = start + pageable.getPageSize() - 1;
+				if (!idSet.isEmpty()) {
+					idSet.retainAll(authorIds);
+				} else {
+					idSet.addAll(authorIds);
+				}
+			}
 
-                List<String> ids = jedis.lrange(BOOKS_ALL_KEY, start, end);
-                return buildPageFromIds(ids, pageable, jedis);
-            }
+			if (idSet.isEmpty()) {
+				int start = (int) pageable.getOffset();
+				int end = start + pageable.getPageSize() - 1;
 
-            List<String> idList = new ArrayList<>(idSet);
+				List<String> ids = jedis.lrange(BOOKS_ALL_KEY, start, end);
+				return buildPageFromIds(ids, pageable, jedis);
+			}
 
-            int start = (int) pageable.getOffset();
-            int end = Math.min(start + pageable.getPageSize(), idList.size());
+			List<String> idList = new ArrayList<>(idSet);
 
-            if (start >= idList.size()) {
-                return new PageImpl<>(Collections.emptyList(), pageable, idList.size());
-            }
+			int start = (int) pageable.getOffset();
+			int end = Math.min(start + pageable.getPageSize(), idList.size());
 
-            List<String> pageIds = idList.subList(start, end);
+			if (start >= idList.size()) {
+				return new PageImpl<>(Collections.emptyList(), pageable, idList.size());
+			}
 
-            return buildPageFromIds(pageIds, pageable, jedis, idList.size());
-        }
-    }
+			List<String> pageIds = idList.subList(start, end);
 
-    private Page<Book> buildPageFromIds(List<String> ids, Pageable pageable, Jedis jedis) {
-        return buildPageFromIds(ids, pageable, jedis, ids.size());
-    }
+			return buildPageFromIds(pageIds, pageable, jedis, idList.size());
+		}
+	}
 
-    private Page<Book> buildPageFromIds(List<String> ids, Pageable pageable, Jedis jedis, long total) {
-        List<Book> books = new ArrayList<>();
+	private Page<Book> buildPageFromIds(List<String> ids, Pageable pageable, Jedis jedis) {
+		return buildPageFromIds(ids, pageable, jedis, ids.size());
+	}
 
-        if (ids == null || ids.isEmpty()) {
-            return new PageImpl<>(books, pageable, total);
-        }
+	private Page<Book> buildPageFromIds(List<String> ids, Pageable pageable, Jedis jedis, long total) {
+		List<Book> books = new ArrayList<>();
 
-        int batchSize = 200;
+		if (ids == null || ids.isEmpty()) {
+			return new PageImpl<>(books, pageable, total);
+		}
 
-        for (int i = 0; i < ids.size(); i += batchSize) {
-            int end = Math.min(i + batchSize, ids.size());
+		int batchSize = 200;
 
-            List<String> batchIds = ids.subList(i, end);
+		for (int i = 0; i < ids.size(); i += batchSize) {
+			int end = Math.min(i + batchSize, ids.size());
 
-            String[] keys = batchIds.stream()
-                    .map(id -> "book:" + id)
-                    .toArray(String[]::new);
+			List<String> batchIds = ids.subList(i, end);
 
-            List<String> jsons = jedis.mget(keys);
+			String[] keys = batchIds.stream()
+					.map(id -> "book:" + id)
+					.toArray(String[]::new);
 
-            for (String json : jsons) {
-                if (json != null) {
-                    books.add(gson.fromJson(json, Book.class));
-                }
-            }
-        }
+			List<String> jsons = jedis.mget(keys);
 
-        return new PageImpl<>(books, pageable, total);
-    }
+			for (String json : jsons) {
+				if (json != null) {
+					books.add(gson.fromJson(json, Book.class));
+				}
+			}
+		}
 
-    @Override
-    public void deleteByIds(List<String> ids) {
-        if (ids == null || ids.isEmpty()) return;
+		return new PageImpl<>(books, pageable, total);
+	}
 
-        try (Jedis jedis = RedisUtil.getConnection()) {
-            for (String idStr : ids) {
-                String key = "book:" + idStr;
-                String json = jedis.get(key);
+	@Override
+	public void deleteByIds(List<String> ids) {
+		if (ids == null || ids.isEmpty()) return;
 
-                if (json != null) {
-                    Book book = gson.fromJson(json, Book.class);
+		try (Jedis jedis = RedisUtil.getConnection()) {
+			for (String idStr : ids) {
+				String key = "book:" + idStr;
+				String json = jedis.get(key);
 
-                    removeIndexes(jedis, book);
-                    jedis.lrem(BOOKS_ALL_KEY, 0, idStr);
-                    jedis.del(key);
-                }
-            }
-        }
-    }
+				if (json != null) {
+					Book book = gson.fromJson(json, Book.class);
 
-    @Override
-    public void saveAll(List<Book> books) {
+					removeIndexes(jedis, book);
+					jedis.lrem(BOOKS_ALL_KEY, 0, idStr);
+					jedis.del(key);
+				}
+			}
+		}
+	}
 
-        if (books == null || books.isEmpty()) return;
+	@Override
+	public void saveAll(List<Book> books) {
 
-        try (Jedis jedis = RedisUtil.getConnection()) {
-            Pipeline pipeline = jedis.pipelined();
+		if (books == null || books.isEmpty()) return;
 
-            for (Book book : books) {
-                if (book == null) continue;
+		try (Jedis jedis = RedisUtil.getConnection()) {
+			Pipeline pipeline = jedis.pipelined();
 
-                if (book.getId() == null) {
-                    book.setId(generateId());
-                }
+			for (Book book : books) {
+				if (book == null) continue;
 
-                String redisId = String.valueOf(book.getId());
-                String key = bookKey(book.getId());
+				if (book.getId() == null) {
+					book.setId(generateId());
+				}
 
-                pipeline.set(key, gson.toJson(book));
-                pipeline.rpush(BOOKS_ALL_KEY, redisId);
-            }
+				String redisId = String.valueOf(book.getId());
+				String key = bookKey(book.getId());
 
-            pipeline.sync();
+				pipeline.set(key, gson.toJson(book));
+				pipeline.rpush(BOOKS_ALL_KEY, redisId);
+			}
 
-            for (Book book : books) {
-                if (book != null) {
-                    addIndexes(jedis, book);
-                }
-            }
-        }
-    }
+			pipeline.sync();
 
-    @Override
-    public Map<String, Object> statisticByAuthor(String author) {
-        Map<String, Object> result = new HashMap<>();
+			for (Book book : books) {
+				if (book != null) {
+					addIndexes(jedis, book);
+				}
+			}
+		}
+	}
 
-        try (Jedis jedis = RedisUtil.getConnection()) {
-            Map<String, String> hashData = jedis.hgetAll(authorStatsKey(author));
+	@Override
+	public Map<String, Object> statisticByAuthor(String author) {
+		Map<String, Object> result = new HashMap<>();
 
-            if (hashData.isEmpty()) {
-                result.put("message", "Không tìm thấy dữ liệu tác giả");
-                return result;
-            }
+		try (Jedis jedis = RedisUtil.getConnection()) {
+			Map<String, String> hashData = jedis.hgetAll(authorStatsKey(author));
 
-            Map<String, Long> categoryStats = new HashMap<>();
+			if (hashData.isEmpty()) {
+				result.put("message", "Không tìm thấy dữ liệu tác giả");
+				return result;
+			}
 
-            for (Map.Entry<String, String> entry : hashData.entrySet()) {
-                String key = entry.getKey();
-                Long value = Long.parseLong(entry.getValue());
+			Map<String, Long> categoryStats = new HashMap<>();
 
-                if ("total".equals(key)) {
-                    result.put("tongSoSach", value);
-                } else if (key.startsWith("category:")) {
-                    String catName = key.replace("category:", "");
-                    categoryStats.put(catName, value);
-                }
-            }
+			for (Map.Entry<String, String> entry : hashData.entrySet()) {
+				String key = entry.getKey();
+				Long value = Long.parseLong(entry.getValue());
 
-            result.put("thongKeTheoTheLoai", categoryStats);
-        }
+				if ("total".equals(key)) {
+					result.put("tongSoSach", value);
+				} else if (key.startsWith("category:")) {
+					String catName = key.replace("category:", "");
+					categoryStats.put(catName, value);
+				}
+			}
 
-        return result;
-    }
+			result.put("thongKeTheoTheLoai", categoryStats);
+		}
 
-    @Override
-    public Page<Book> findAllPaging(Pageable pageable) {
-        List<Book> books = new ArrayList<>();
+		return result;
+	}
 
-        try (Jedis jedis = RedisUtil.getConnection()) {
-            int start = (int) pageable.getOffset();
-            int end = start + pageable.getPageSize() - 1;
+	@Override
+	public Page<Book> findAllPaging(Pageable pageable) {
+		List<Book> books = new ArrayList<>();
 
-            List<String> ids = jedis.lrange(BOOKS_ALL_KEY, start, end);
+		try (Jedis jedis = RedisUtil.getConnection()) {
+			int start = (int) pageable.getOffset();
+			int end = start + pageable.getPageSize() - 1;
 
-            if (!ids.isEmpty()) {
-                List<String> keys = ids.stream()
-                        .map(id -> "book:" + id)
-                        .toList();
+			List<String> ids = jedis.lrange(BOOKS_ALL_KEY, start, end);
 
-                List<String> jsons = jedis.mget(keys.toArray(new String[0]));
+			if (!ids.isEmpty()) {
+				List<String> keys = ids.stream()
+						.map(id -> "book:" + id)
+						.toList();
 
-                for (String json : jsons) {
-                    if (json != null) {
-                        books.add(gson.fromJson(json, Book.class));
-                    }
-                }
-            }
+				List<String> jsons = jedis.mget(keys.toArray(new String[0]));
 
-            long total = jedis.llen(BOOKS_ALL_KEY);
-            return new PageImpl<>(books, pageable, total);
-        }
-    }
+				for (String json : jsons) {
+					if (json != null) {
+						books.add(gson.fromJson(json, Book.class));
+					}
+				}
+			}
+
+			long total = jedis.llen(BOOKS_ALL_KEY);
+			return new PageImpl<>(books, pageable, total);
+		}
+	}
 }

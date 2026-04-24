@@ -22,267 +22,274 @@ import java.util.stream.Collectors;
 
 public class InfluxdbBookRepository implements BookRepository {
 
-    private static final String MEASUREMENT = "Book";
-    private final InfluxDBClient influxDBClient;
-    private final String org;
-    private final String bucket;
+	private static final String MEASUREMENT = "Book";
+	private final InfluxDBClient influxDBClient;
+	private final String org;
+	private final String bucket;
 
-    public InfluxdbBookRepository() {
-        ConfigFactory configFactory = ConfigFactory.getInstance();
+	public InfluxdbBookRepository() {
+		ConfigFactory configFactory = ConfigFactory.getInstance();
 
-        String url = configFactory.getConfig("influxdb.url");
-        String token = configFactory.getConfig("influxdb.token");
-        this.org = configFactory.getConfig("influxdb.org");
-        this.bucket = configFactory.getConfig("influxdb.bucket");
-        this.influxDBClient = INFLUXUtil.getClient();
+		String url = configFactory.getConfig("influxdb.url");
+		String token = configFactory.getConfig("influxdb.token");
+		this.org = configFactory.getConfig("influxdb.org");
+		this.bucket = configFactory.getConfig("influxdb.bucket");
+		this.influxDBClient = INFLUXUtil.getClient();
 
-        if (url == null || url.isBlank()) {
-            throw new RuntimeException("Thiếu cấu hình influxdb.url");
-        }
-        if (token == null || token.isBlank()) {
-            throw new RuntimeException("Thiếu cấu hình influxdb.token");
-        }
-        if (org == null || org.isBlank()) {
-            throw new RuntimeException("Thiếu cấu hình influxdb.org");
-        }
-        if (bucket == null || bucket.isBlank()) {
-            throw new RuntimeException("Thiếu cấu hình influxdb.bucket");
-        }
+		if (url == null || url.isBlank()) {
+			throw new RuntimeException("Thiếu cấu hình influxdb.url");
+		}
+		if (token == null || token.isBlank()) {
+			throw new RuntimeException("Thiếu cấu hình influxdb.token");
+		}
+		if (org == null || org.isBlank()) {
+			throw new RuntimeException("Thiếu cấu hình influxdb.org");
+		}
+		if (bucket == null || bucket.isBlank()) {
+			throw new RuntimeException("Thiếu cấu hình influxdb.bucket");
+		}
 
-        System.out.println("[OK] InfluxDBClient initialized");
-    }
+		System.out.println("[OK] InfluxDBClient initialized");
+	}
 
-    private List<Book> mapFluxToBooks(String fluxQuery) {
-        List<Book> books = new ArrayList<>();
-        List<FluxTable> tables = influxDBClient.getQueryApi().query(fluxQuery);
+	private List<Book> mapFluxToBooks(String fluxQuery) {
+		List<Book> books = new ArrayList<>();
+		List<FluxTable> tables = influxDBClient.getQueryApi().query(fluxQuery);
 
-        for (FluxTable table : tables) {
-            for (FluxRecord record : table.getRecords()) {
-                Book book = new Book();
+		for (FluxTable table : tables) {
+			for (FluxRecord record : table.getRecords()) {
+				Book book = new Book();
 
-                Object idObj = record.getValueByKey("id");
-                if (idObj != null) {
-                    try {
-                        book.setId(Long.parseLong(idObj.toString()));
-                    } catch (NumberFormatException ignore) {
-                    }
-                }
+				Object idObj = record.getValueByKey("id");
+				if (idObj != null) {
+					try {
+						book.setId(Long.parseLong(idObj.toString()));
+					} catch (NumberFormatException ignore) {
+					}
+				}
 
-                Object title = record.getValueByKey("title");
-                if (title != null) book.setTitle(title.toString());
+				Object title = record.getValueByKey("title");
+				if (title != null) book.setTitle(title.toString());
 
-                Object author = record.getValueByKey("author");
-                if (author != null) book.setAuthor(author.toString());
+				Object author = record.getValueByKey("author");
+				if (author != null) book.setAuthor(author.toString());
 
-                Object category = record.getValueByKey("category");
-                if (category != null) book.setCategory(category.toString());
+				Object category = record.getValueByKey("category");
+				if (category != null) book.setCategory(category.toString());
 
-                Object viewCount = record.getValueByKey("viewCount");
-                if (viewCount != null) {
-                    try {
-                        book.setViewCount(Long.parseLong(viewCount.toString()));
-                    } catch (NumberFormatException ignore) {
-                    }
-                }
+				Object viewCount = record.getValueByKey("viewCount");
+				if (viewCount != null) {
+					try {
+						book.setViewCount(Long.parseLong(viewCount.toString()));
+					} catch (NumberFormatException ignore) {
+					}
+				}
 
-                Object downloadCount = record.getValueByKey("downloadCount");
-                if (downloadCount != null) {
-                    try {
-                        book.setDownloadCount(Long.parseLong(downloadCount.toString()));
-                    } catch (NumberFormatException ignore) {
-                    }
-                }
+				Object downloadCount = record.getValueByKey("downloadCount");
+				if (downloadCount != null) {
+					try {
+						book.setDownloadCount(Long.parseLong(downloadCount.toString()));
+					} catch (NumberFormatException ignore) {
+					}
+				}
 
-                books.add(book);
-            }
-        }
-        return books;
-    }
+				books.add(book);
+			}
+		}
+		return books;
+	}
 
-    @Override
-    public void save(Book book) {
-        if (book.getId() == null) {
-            book.setId(System.currentTimeMillis() + UUID.randomUUID().timestamp());
-        }
+	@Override
+	public void save(Book book) {
+		if (book.getId() == null) {
+			book.setId(Math.abs(UUID.randomUUID().getMostSignificantBits()));
+		}
 
-        influxDBClient.getWriteApiBlocking().writePoint(bucket, org, addPoint(book));
-    }
+		System.out.println("-> Saving book: " + book.getId() + " by " + book.getAuthor());
 
-    @Override
-    public void saveAll(List<Book> books) {
-        if (books == null || books.isEmpty()) return;
+		influxDBClient.getWriteApiBlocking().writePoint(bucket, org, addPoint(book));
+	}
 
-        List<Point> points = new ArrayList<>();
-        for (Book book : books) {
+	@Override
+	public void saveAll(List<Book> books) {
+		if (books == null || books.isEmpty()) return;
 
-            if (book.getId() == null) {
-                book.setId(Math.abs(UUID.randomUUID().getMostSignificantBits()));
-            }
+		List<Point> points = new ArrayList<>();
+		for (Book book : books) {
 
-            points.add(addPoint(book));
-        }
+			if (book.getId() == null) {
+				book.setId(Math.abs(UUID.randomUUID().getMostSignificantBits()));
+			}
 
-        influxDBClient.getWriteApiBlocking().writePoints(bucket, org, points);
-        System.out.println("-> Batch save " + books.size() + " books successful.");
-    }
+			points.add(addPoint(book));
+		}
 
-    public Point addPoint(Book book) {
-        return Point.measurement(MEASUREMENT)
-                .addTag("id", String.valueOf(book.getId()))
-                .addTag("author", book.getAuthor() == null ? "Unknown" : book.getAuthor())
-                .addTag("category", book.getCategory() == null ? "General" : book.getCategory())
+		influxDBClient.getWriteApiBlocking().writePoints(bucket, org, points);
+		System.out.println("-> Batch save " + books.size() + " books successful.");
+	}
 
-                .addField("title", book.getTitle() == null ? "" : book.getTitle())
+	public Point addPoint(Book book) {
+		return Point.measurement(MEASUREMENT)
+				.addTag("id", String.valueOf(book.getId()))
+				.addTag("author", book.getAuthor() == null ? "Unknown" : book.getAuthor())
+				.addTag("category", book.getCategory() == null ? "General" : book.getCategory())
 
-                .addField("viewCount", book.getViewCount() == null ? 0L : book.getViewCount())
-                .addField("downloadCount", book.getDownloadCount() == null ? 0L : book.getDownloadCount())
+				.addField("title", book.getTitle() == null ? "" : book.getTitle())
 
-                .time(book.getCreateDate() != null ? book.getCreateDate() : Instant.now(), WritePrecision.NS);
-    }
+				.addField("viewCount", book.getViewCount() == null ? 0L : book.getViewCount())
+				.addField("downloadCount", book.getDownloadCount() == null ? 0L : book.getDownloadCount())
 
-    @Override
-    public Page<Book> search(String title, String author, String content, Pageable pageable) {
-        int page = pageable == null ? 0 : pageable.getPageNumber();
-        int size = pageable == null ? 10 : pageable.getPageSize();
-        Long offset = countTotalBooks();
+				.time(book.getCreateDate() != null ? book.getCreateDate() : Instant.now(), WritePrecision.NS);
+	}
 
-        StringBuilder flux = new StringBuilder();
-        flux.append(String.format("from(bucket: \"%s\") ", bucket))
-                .append("|> range(start: 0) ")
-                .append(String.format("|> filter(fn: (r) => r._measurement == \"%s\") ", MEASUREMENT));
+	@Override
+	public Page<Book> search(String title, String author, String content, Pageable pageable) {
+		int page = pageable == null ? 0 : pageable.getPageNumber();
+		int size = pageable == null ? 10 : pageable.getPageSize();
+		Long offset = countTotalBooks();
 
-        if (author != null && !author.isBlank()) {
-            flux.append(String.format("|> filter(fn: (r) => r.author =~ /(?i)%s/) ", author));
-        }
+		StringBuilder flux = new StringBuilder();
+		flux.append(String.format("from(bucket: \"%s\") ", bucket))
+				.append("|> range(start: 0) ")
+				.append(String.format("|> filter(fn: (r) => r._measurement == \"%s\") ", MEASUREMENT));
 
-        flux.append("|> pivot(rowKey:[\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\") ");
+		if (author != null && !author.isBlank()) {
+			flux.append(String.format("|> filter(fn: (r) => r.author =~ /(?i)%s/) ", author));
+		}
 
-        if (title != null && !title.isBlank()) {
-            flux.append(String.format("|> filter(fn: (r) => r.title =~ /(?i)%s/) ", title));
-        }
+		flux.append("|> pivot(rowKey:[\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\") ");
 
-        flux.append(String.format("|> limit(n: %d, offset: %d)", size, offset));
+		if (title != null && !title.isBlank()) {
+			flux.append(String.format("|> filter(fn: (r) => r.title =~ /(?i)%s/) ", title));
+		}
 
-        List<Book> books = mapFluxToBooks(flux.toString());
-        return new PageImpl<>(books, PageRequest.of(page, size), books.size());
-    }
+		flux.append(String.format("|> limit(n: %d, offset: %d)", size, offset));
 
-    @Override
-    public void update(Long id, Book book) {
+		List<Book> books = mapFluxToBooks(flux.toString());
+		return new PageImpl<>(books, PageRequest.of(page, size), books.size());
+	}
 
-        String flux = String.format(
-                "from(bucket: \"%s\") " +
-                        "|> range(start: 0) " +
-                        "|> filter(fn: (r) => r._measurement == \"%s\") " +
-                        "|> filter(fn: (r) => r.id == \"%s\") " +
-                        "|> limit(n: 1)",
-                bucket, MEASUREMENT, id.toString()
-        );
+	@Override
+	public void update(Long id, Book book) {
 
-        List<FluxTable> tables = influxDBClient.getQueryApi().query(flux);
+		String flux = String.format(
+				"from(bucket: \"%s\") " +
+						"|> range(start: 0) " +
+						"|> filter(fn: (r) => r._measurement == \"%s\") " +
+						"|> filter(fn: (r) => r.id == \"%s\") " +
+						"|> limit(n: 1)",
+				bucket, MEASUREMENT, id.toString()
+		);
 
-        boolean exists = tables.stream().anyMatch(t -> !t.getRecords().isEmpty());
-        if (!exists) {
-            System.out.println("Update không thành công: Không tìm thấy ID");
-            return;
-        }
+		List<FluxTable> tables = influxDBClient.getQueryApi().query(flux);
 
-        deleteByIds(List.of(id.toString()));
-        book.setId(id);
-        save(book);
-        System.out.println("Cập nhật thành công bản ghi InfluxDB");
-    }
+		boolean exists = tables.stream().anyMatch(t -> !t.getRecords().isEmpty());
+		if (!exists) {
+			System.out.println("Update không thành công: Không tìm thấy ID");
+			return;
+		}
 
-    @Override
-    public void deleteByIds(List<String> ids) {
-        if (ids == null || ids.isEmpty()) return;
+		deleteByIds(List.of(id.toString()));
+		book.setId(id);
+		save(book);
+		System.out.println("Cập nhật thành công bản ghi InfluxDB");
+	}
 
-        OffsetDateTime start = OffsetDateTime.of(1970, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC);
-        OffsetDateTime stop = OffsetDateTime.now();
+	@Override
+	public Object findById(Long id) {
+		return null;
+	}
 
-        String predicate = ids.stream()
-                .map(id -> "id = \"" + id + "\"")
-                .collect(Collectors.joining(" OR "));
+	@Override
+	public void deleteByIds(List<String> ids) {
+		if (ids == null || ids.isEmpty()) return;
 
-        String finalPredicate = "(_measurement = \"" + MEASUREMENT + "\") AND (" + predicate + ")";
+		OffsetDateTime start = OffsetDateTime.of(1970, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC);
+		OffsetDateTime stop = OffsetDateTime.now();
 
-        try {
-            influxDBClient.getDeleteApi().delete(start, stop, finalPredicate, bucket, org);
-            System.out.println("Đã xóa các sách có ID: " + ids);
-        } catch (Exception e) {
-            System.err.println("Lỗi khi xóa dữ liệu InfluxDB: " + e.getMessage());
-        }
-    }
+		String predicate = ids.stream()
+				.map(id -> "id = \"" + id + "\"")
+				.collect(Collectors.joining(" OR "));
 
-    @Override
-    public Map<String, Object> statisticByAuthor(String author) {
-        String flux = String.format(
-                "from(bucket: \"%s\") " +
-                        "|> range(start: 0) " +
-                        "|> filter(fn: (r) => r._measurement == \"%s\") " +
-                        "|> filter(fn: (r) => r.author == \"%s\") " +
-                        "|> group() " +
-                        "|> count()",
-                bucket, MEASUREMENT, author
-        );
+		String finalPredicate = "(_measurement = \"" + MEASUREMENT + "\") AND (" + predicate + ")";
 
-        List<FluxTable> tables = influxDBClient.getQueryApi().query(flux);
+		try {
+			influxDBClient.getDeleteApi().delete(start, stop, finalPredicate, bucket, org);
+			System.out.println("Đã xóa các sách có ID: " + ids);
+		} catch (Exception e) {
+			System.err.println("Lỗi khi xóa dữ liệu InfluxDB: " + e.getMessage());
+		}
+	}
 
-        long totalBooks = 0;
-        if (!tables.isEmpty() && !tables.getFirst().getRecords().isEmpty()) {
-            totalBooks = Long.parseLong(Objects.requireNonNull(tables.getFirst().getRecords().getFirst().getValueByKey("_value")).toString());
-        }
+	@Override
+	public Map<String, Object> statisticByAuthor(String author) {
+		String flux = String.format(
+				"from(bucket: \"%s\") " +
+						"|> range(start: 0) " +
+						"|> filter(fn: (r) => r._measurement == \"%s\") " +
+						"|> filter(fn: (r) => r.author == \"%s\") " +
+						"|> group() " +
+						"|> count()",
+				bucket, MEASUREMENT, author
+		);
 
-        if (totalBooks == 0) {
-            return Map.of("message", "Không tìm thấy dữ liệu tác giả: " + author);
-        }
+		List<FluxTable> tables = influxDBClient.getQueryApi().query(flux);
 
-        return Map.of(
-                "author", author,
-                "totalBooks", totalBooks,
-                "lastUpdated", Instant.now()
-        );
-    }
+		long totalBooks = 0;
+		if (!tables.isEmpty() && !tables.getFirst().getRecords().isEmpty()) {
+			totalBooks = Long.parseLong(Objects.requireNonNull(tables.getFirst().getRecords().getFirst().getValueByKey("_value")).toString());
+		}
 
-    public Long countTotalBooks() {
-        String flux = String.format(
-                "from(bucket: \"%s\") " +
-                        "|> range(start: 0) " +
-                        "|> filter(fn: (r) => r._measurement == \"%s\") " +
-                        "|> group() " +
-                        "|> count()",
-                bucket, MEASUREMENT
-        );
-        List<FluxTable> tables = influxDBClient.getQueryApi().query(flux);
-        if (!tables.isEmpty() && !tables.getFirst().getRecords().isEmpty()) {
-            return Long.parseLong((tables.getFirst().getRecords().getFirst().getValueByKey("_value")).toString());
-        }
-        return 0L;
-    }
+		if (totalBooks == 0) {
+			return Map.of("message", "Không tìm thấy dữ liệu tác giả: " + author);
+		}
 
-    @Override
-    public Page<Book> findAllPaging(Pageable pageable) {
-        Long totalBooks = countTotalBooks();
+		return Map.of(
+				"author", author,
+				"totalBooks", totalBooks,
+				"lastUpdated", Instant.now()
+		);
+	}
 
-        String flux = String.format(
-                "from(bucket: \"%s\") " +
-                        "|> range(start: -30d) " +
-                        "|> filter(fn: (r) => r._measurement == \"%s\") " +
-                        "|> filter(fn: (r) => " +
-                        "r._field == \"author\" or " +
-                        "r._field == \"category\" or " +
-                        "r._field == \"title\") " +
-                        "|> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\") " +
-                        "|> keep(columns: [\"_time\", \"author\", \"category\", \"title\", \"id\"]) " +
-                        "|> group() " +
-                        "|> sort(columns: [\"_time\"], desc: false) " +
-                        "|> limit(n: %d, offset: %d)",
-                bucket, MEASUREMENT, pageable.getPageSize(), pageable.getOffset()
-        );
-        System.out.println(totalBooks);
+	public Long countTotalBooks() {
+		String flux = String.format(
+				"from(bucket: \"%s\") " +
+						"|> range(start: 0) " +
+						"|> filter(fn: (r) => r._measurement == \"%s\") " +
+						"|> group() " +
+						"|> count()",
+				bucket, MEASUREMENT
+		);
+		List<FluxTable> tables = influxDBClient.getQueryApi().query(flux);
+		if (!tables.isEmpty() && !tables.getFirst().getRecords().isEmpty()) {
+			return Long.parseLong((tables.getFirst().getRecords().getFirst().getValueByKey("_value")).toString());
+		}
+		return 0L;
+	}
 
-        List<Book> books = mapFluxToBooks(flux);
+	@Override
+	public Page<Book> findAllPaging(Pageable pageable) {
+		Long totalBooks = countTotalBooks();
 
-        return new PageImpl<>(books, pageable, totalBooks);
-    }
+		String flux = String.format(
+				"from(bucket: \"%s\") " +
+						"|> range(start: -30d) " +
+						"|> filter(fn: (r) => r._measurement == \"%s\") " +
+						"|> filter(fn: (r) => " +
+						"r._field == \"author\" or " +
+						"r._field == \"category\" or " +
+						"r._field == \"title\") " +
+						"|> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\") " +
+						"|> keep(columns: [\"_time\", \"author\", \"category\", \"title\", \"id\"]) " +
+						"|> group() " +
+						"|> sort(columns: [\"_time\"], desc: false) " +
+						"|> limit(n: %d, offset: %d)",
+				bucket, MEASUREMENT, pageable.getPageSize(), pageable.getOffset()
+		);
+		System.out.println(totalBooks);
+
+		List<Book> books = mapFluxToBooks(flux);
+
+		return new PageImpl<>(books, pageable, totalBooks);
+	}
 }
